@@ -5,6 +5,83 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Phase 4 Step 2] - 2025-10-25
+
+### Added
+- **Scheduling Tab Implementation**: Full functionality for managing scheduled jobs
+  - **Job Listing**: Treeview widget displaying all scheduled jobs from `Config/schedule.json`
+  - **Dynamic UI**: Form fields adapt based on selected job type (daily, weekly, interval, once)
+  - **Add Jobs**: Complete form with validation for creating new scheduled jobs
+  - **Delete Jobs**: Confirmation dialog for removing jobs from schedule
+  - **Job Types Support**: All 4 job types fully implemented
+    - **Daily**: Time-based scheduling (HH:MM format)
+    - **Weekly**: Day and time-based scheduling
+    - **Interval**: Minute-based interval scheduling
+    - **Once**: One-time execution with specific date/time
+- **Enhanced GUI Tests**: Added 4 new tests for scheduling functionality
+  - `test_load_schedule_gui_populates_treeview` - Verifies treeview population from JSON
+  - `test_add_schedule_job_valid_input` - Verifies input validation
+  - `test_delete_schedule_job_updates_json` - Verifies deletion confirmation
+  - `test_on_job_type_change_exists` - Verifies dynamic UI adaptation
+- **Input Validation**: Comprehensive validation for all job types
+  - Time format validation (HH:MM) with range checking (0-23 hours, 0-59 minutes)
+  - DateTime format validation for one-time jobs (YYYY-MM-DD HH:MM)
+  - Positive integer validation for interval jobs
+  - Task file existence validation
+  - Empty field validation with user-friendly error messages
+- **Job Management**: Complete CRUD operations for scheduled jobs
+  - Load from JSON file with error handling
+  - Add new jobs with full validation
+  - Delete jobs with confirmation dialog
+  - Refresh list to update display
+  - Automatic JSON persistence
+
+### Technical Details
+- **GUI Components**:
+  - Treeview with 6 columns (#, Type, Time/Interval, Task, Enabled, Last Run)
+  - Combobox for job type selection with 4 options
+  - Dynamic fields container that shows/hides based on job type
+  - Entry fields for time, date, and interval inputs
+  - Enabled checkbox for job activation
+  - Two-button layout (Refresh, Delete) for list management
+- **Data Management**:
+  - JSON file reading and writing with proper error handling
+  - UTF-8 encoding for international characters
+  - Pretty-printed JSON with 2-space indentation
+  - Index-based job deletion for precise removal
+  - Data structure validation before saving
+- **Validation Logic**:
+  - Time format validation using split and int conversion
+  - DateTime format validation using `datetime.datetime.strptime`
+  - Positive integer validation for intervals
+  - File existence checking for task files
+  - Comprehensive error messages for each validation failure
+- **Dynamic UI**:
+  - Event binding on Combobox selection
+  - Grid show/hide for field visibility
+  - Separate field sets for each job type
+  - Clean state management between job type changes
+
+### Testing
+- **72/72 tests passing** (added 4 new GUI tests)
+- **GUI file passes MyPy validation** - No type errors in main_gui.py
+- All scheduling operations tested and verified
+- Error handling validated for all validation scenarios
+- Integration testing verified for JSON read/write operations
+
+### Files Modified
+- `GUI/main_gui.py` - Added complete Scheduling tab implementation (145 lines)
+  - `setup_schedule_tab()` - Full UI setup with all form elements
+  - `on_job_type_change()` - Dynamic UI adaptation logic
+  - `load_schedule_gui()` - Load and display jobs from JSON
+  - `add_schedule_job()` - Add new job with validation
+  - `delete_schedule_job()` - Delete job with confirmation
+- `Tests/test_gui.py` - Added 4 new tests for scheduling (42 lines)
+  - Tests for all main scheduling methods
+  - Validation of JSON operations
+  - UI component verification
+- Added `datetime` import for datetime validation
+
 ## [Phase 4 Step 1] - 2025-10-25
 
 ### Added

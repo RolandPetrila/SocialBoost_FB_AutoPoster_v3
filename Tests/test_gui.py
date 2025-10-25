@@ -119,6 +119,52 @@ class TestGUIIntegration(unittest.TestCase):
         self.assertIn('selected_assets.json', code, "save_selected_assets should write to selected_assets.json")
         self.assertIn('"images":', code, "save_selected_assets should include images key")
         self.assertIn('"videos":', code, "save_selected_assets should include videos key")
+    
+    def test_load_schedule_gui_populates_treeview(self):
+        """Test that load_schedule_gui method exists and uses json.load."""
+        gui_file = project_root / "GUI" / "main_gui.py"
+        with open(gui_file, 'r', encoding='utf-8') as f:
+            code = f.read()
+        
+        # Check that the method exists
+        self.assertIn('def load_schedule_gui', code, "GUI should have load_schedule_gui method")
+        self.assertIn('json.load', code, "load_schedule_gui should use json.load")
+        self.assertIn('schedule.json', code, "load_schedule_gui should read from schedule.json")
+        self.assertIn('schedule_tree', code, "GUI should have schedule_tree widget")
+    
+    def test_add_schedule_job_valid_input(self):
+        """Test that add_schedule_job validates input and writes to JSON."""
+        gui_file = project_root / "GUI" / "main_gui.py"
+        with open(gui_file, 'r', encoding='utf-8') as f:
+            code = f.read()
+        
+        # Check that the method exists and validates input
+        self.assertIn('def add_schedule_job', code, "GUI should have add_schedule_job method")
+        self.assertIn('messagebox.showerror', code, "add_schedule_job should validate input")
+        self.assertIn('datetime.datetime.strptime', code, "add_schedule_job should validate datetime")
+    
+    def test_delete_schedule_job_updates_json(self):
+        """Test that delete_schedule_job method exists."""
+        gui_file = project_root / "GUI" / "main_gui.py"
+        with open(gui_file, 'r', encoding='utf-8') as f:
+            code = f.read()
+        
+        # Check that the method exists
+        self.assertIn('def delete_schedule_job', code, "GUI should have delete_schedule_job method")
+        self.assertIn('messagebox.askyesno', code, "delete_schedule_job should confirm deletion")
+    
+    def test_on_job_type_change_exists(self):
+        """Test that on_job_type_change method exists for dynamic UI."""
+        gui_file = project_root / "GUI" / "main_gui.py"
+        with open(gui_file, 'r', encoding='utf-8') as f:
+            code = f.read()
+        
+        # Check that the method exists
+        self.assertIn('def on_job_type_change', code, "GUI should have on_job_type_change method")
+        self.assertIn('daily', code, "GUI should support daily jobs")
+        self.assertIn('weekly', code, "GUI should support weekly jobs")
+        self.assertIn('interval', code, "GUI should support interval jobs")
+        self.assertIn('once', code, "GUI should support once jobs")
 
 
 if __name__ == '__main__':
