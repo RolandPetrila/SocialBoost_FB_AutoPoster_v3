@@ -9,10 +9,11 @@ import sys
 import base64
 import logging
 import time
+import argparse
 import openai
 from pathlib import Path
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List, Union
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -65,12 +66,16 @@ class ContentGenerator:
                 logger.info(f"Making OpenAI API call with model: {self.model} (attempt {attempt + 1}/{max_retries})")
                 response = self.client.chat.completions.create(
                     model=self.model,
-                    messages=messages,
+                    messages=messages,  # type: ignore
                     max_tokens=max_tokens,
                     temperature=0.7
                 )
                 
                 generated_text = response.choices[0].message.content
+                if generated_text is None:
+                    logger.warning("Generated text is None, using fallback")
+                    return self._get_fallback_text("Text generation failed")
+                
                 logger.info(f"✓ Generated text successfully ({len(generated_text)} characters)")
                 
                 return generated_text
@@ -189,12 +194,16 @@ class ContentGenerator:
                 logger.info(f"Making OpenAI Vision API call with model: {self.model} (attempt {attempt + 1}/{max_retries})")
                 response = self.client.chat.completions.create(
                     model=self.model,
-                    messages=messages,
+                    messages=messages,  # type: ignore
                     max_tokens=300,
                     temperature=0.7
                 )
                 
                 generated_caption = response.choices[0].message.content
+                if generated_caption is None:
+                    logger.warning("Generated caption is None, using fallback")
+                    return self._get_fallback_text("Caption generation failed")
+                
                 logger.info(f"✓ Generated caption successfully ({len(generated_caption)} characters)")
                 
                 return generated_caption
@@ -255,7 +264,7 @@ class ContentGenerator:
         """Check if OpenAI API is accessible."""
         try:
             logger.info("Checking OpenAI API status...")
-            models = self.client.models.list(limit=1)
+            models = self.client.models.list()
             logger.info("✓ OpenAI API is accessible")
             return True
         except Exception as e:
@@ -278,7 +287,11 @@ class ContentGenerator:
         return fallback_texts.get(error_type, f"🌟 Amazing content coming soon! Stay tuned! #{timestamp.replace('-', '').replace(' ', '').replace(':', '')}")
 
 def main():
-    """Main entry point for content generation testing."""
+    """Main entry point for content generation testing and GUI integration."""
+    parser = argparse.ArgumentParser(description="OpenAI Content Generation Module")
+    parser.add_argument("--prompt", type=str, help="Prompt for text generation")
+    args = parser.parse_args()
+    
     try:
         print("="*60)
         print("OpenAI Content Generation Test")
@@ -295,17 +308,31 @@ def main():
             print("✗ OpenAI API check failed")
             return
         
-        # Test text generation
-        print("\n2. Testing text generation...")
-        text_prompt = "Create a motivational post about productivity and time management for entrepreneurs"
-        print(f"Prompt: {text_prompt}")
-        print("Generating text...")
-        
-        generated_text = generator.generate_post_text(text_prompt)
-        print(f"\nGenerated Text ({len(generated_text)} characters):")
-        print("-" * 40)
-        print(generated_text)
-        print("-" * 40)
+        # If prompt is provided via command line, generate text
+        if args.prompt:
+            print("\n" + "="*60)
+            print("Generating text from command line prompt...")
+            print(f"Prompt: {args.prompt}")
+            print("Generating text...")
+            
+            generated_text = generator.generate_post_text(args.prompt)
+            print(f"\nGenerated Text ({len(generated_text)} characters):")
+            print("-" * 40)
+            print(generated_text)
+            print("-" * 40)
+        else:
+            # Run full test suite if no prompt provided
+            # Test text generation
+            print("\n2. Testing text generation...")
+            text_prompt = "Create a motivational post about productivity and time management for entrepreneurs"
+            print(f"Prompt: {text_prompt}")
+            print("Generating text...")
+            
+            generated_text = generator.generate_post_text(text_prompt)
+            print(f"\nGenerated Text ({len(generated_text)} characters):")
+            print("-" * 40)
+            print(generated_text)
+            print("-" * 40)
         
         # Test image caption generation
         print("\n3. Testing image caption generation...")

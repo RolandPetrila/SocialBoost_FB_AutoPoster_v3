@@ -10,6 +10,7 @@ import json
 import logging
 import requests
 import time
+import argparse
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, Optional
@@ -495,7 +496,11 @@ class FacebookAutoPost:
         return bool(self.page_token)
 
 def main():
-    """Main function for testing."""
+    """Main function for testing and GUI integration."""
+    parser = argparse.ArgumentParser(description="Facebook Auto Post Module")
+    parser.add_argument("--message", type=str, help="Message to post to Facebook")
+    args = parser.parse_args()
+    
     print("="*60)
     print("Facebook Auto Post Module")
     print("="*60)
@@ -514,24 +519,42 @@ def main():
             if poster.check_token_validity():
                 print("✓ Token appears to be present")
                 
-                # Test post_text functionality
-                print("\n" + "="*60)
-                print("Testing post_text functionality...")
-                
-                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                test_message = f"Test post from SocialBoost v3 via Cursor at {timestamp}"
-                
-                print(f"Test message: {test_message}")
-                print("Making API call...")
-                
-                result = poster.post_text(test_message)
-                
-                print(f"\nResult: {result}")
-                
-                if result["status"] == "success":
-                    print(f"✓ Post successful! Post ID: {result.get('post_id')}")
+                # If message is provided via command line, post it
+                if args.message:
+                    print("\n" + "="*60)
+                    print("Posting message from command line...")
+                    print(f"Message: {args.message}")
+                    print("Making API call...")
+                    
+                    result = poster.post_text(args.message)
+                    
+                    print(f"\nResult: {result}")
+                    
+                    if result["status"] == "success":
+                        print(f"✓ Post successful! Post ID: {result.get('post_id')}")
+                    else:
+                        print(f"✗ Post failed: {result.get('error')}")
+                        sys.exit(1)
                 else:
-                    print(f"✗ Post failed: {result.get('error')}")
+                    # Run full test suite if no message provided
+                    # Test post_text functionality
+                    print("\n" + "="*60)
+                    print("Testing post_text functionality...")
+                    
+                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    test_message = f"Test post from SocialBoost v3 via Cursor at {timestamp}"
+                    
+                    print(f"Test message: {test_message}")
+                    print("Making API call...")
+                    
+                    result = poster.post_text(test_message)
+                    
+                    print(f"\nResult: {result}")
+                    
+                    if result["status"] == "success":
+                        print(f"✓ Post successful! Post ID: {result.get('post_id')}")
+                    else:
+                        print(f"✗ Post failed: {result.get('error')}")
                 
                 # Test post_image functionality
                 print("\n" + "="*60)

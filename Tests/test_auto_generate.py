@@ -255,7 +255,7 @@ class TestContentGenerator:
         
         # Assert
         assert result is True
-        mock_client.models.list.assert_called_once_with(limit=1)
+        mock_client.models.list.assert_called_once_with()
     
     @patch('Automatizare_Completa.auto_generate.openai.OpenAI')
     def test_check_api_status_failure(self, mock_openai_class, temp_dir):
