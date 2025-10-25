@@ -1,0 +1,37 @@
+{
+  "jobs": [
+    {
+      "type": "daily",
+      "time": "09:00",
+      "task": "auto_post.py",
+      "enabled": true,
+      "last_run": null,
+      "description": "Daily Facebook post"
+    },
+    {
+      "type": "interval",
+      "every_minutes": 180,
+      "task": "auto_generate.py",
+      "enabled": false,
+      "last_run": null,
+      "description": "Generate content every 3 hours"
+    },
+    {
+      "type": "once",
+      "run_at_datetime": "2025-10-26T12:00:00",
+      "task": "backup_manager.py",
+      "enabled": true,
+      "executed": false,
+      "description": "One-time backup"
+    },
+    {
+      "type": "weekly",
+      "day": "monday",
+      "time": "10:00",
+      "task": "auto_post.py",
+      "enabled": false,
+      "last_run": null,
+      "description": "Weekly Monday post"
+    }
+  ]
+}

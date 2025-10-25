@@ -20,43 +20,73 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Enhanced image posting tests** - 7 new unit tests covering all image posting scenarios
 - **Validation system improvements** - Fixed mypy integration and result saving
 
-## [Phase 3 Step 3] - 2025-10-25
-
-### Added
-- **Facebook Video Posting**: Implemented `post_video()` method in `FacebookAutoPost` class
-  - Resumable upload API integration with 3-stage process (start, transfer, finish)
-  - Support for multiple video formats (MP4, MOV, AVI, WMV, MKV, FLV, WebM)
-  - Chunked file transfer (4MB chunks) for large video files
-  - Video processing status monitoring with automatic checks
-  - Comprehensive error handling for all upload stages
-  - Extended timeouts for video operations (120s for transfers)
-- **Enhanced Testing**: Added 6 new unit tests for video posting functionality
-  - `test_post_video_success`: Tests complete resumable upload workflow
-  - `test_post_video_file_not_found`: Tests file not found scenarios
-  - `test_post_video_unsupported_format`: Tests unsupported format validation
-  - `test_post_video_api_error_start`: Tests start phase error handling
-  - `test_post_video_api_error_transfer`: Tests transfer phase error handling
-  - `test_post_video_empty_message`: Tests empty message validation
-- **Video Processing Monitoring**: 
-  - Automatic status checking after upload completion
-  - Support for 'ready', 'failed', and 'processing' states
-  - Configurable retry intervals and maximum check attempts
+## [Phase 3 Step 4] - 2025-10-25
 
 ### Fixed
-- **Import Dependencies**: Added `time` module for video processing delays
-- **File Validation**: Enhanced video file validation with size checking
-- **Error Handling**: Improved error messages for video-specific scenarios
+- **MyPy Type Errors**: Resolved all MyPy errors in `Tests/validation_runner.py`
+  - Fixed `Collection[str]` indexing issues by adding proper type annotations
+  - Changed `Collection[str]` to `List[Tuple[str, Callable[[], Tuple[bool, str, List[str]]]]]`
+  - Fixed `Optional[Path]` parameter defaults for `project_root` and `output_file`
+  - Added proper type annotations for `self.results` and `self.validation_steps`
+  - MyPy now passes without errors for validation_runner.py
+
+### Added
+- **Task Scheduler System**: Implemented comprehensive scheduling functionality
+  - `Automatizare_Completa/scheduler.py` - Complete scheduler implementation
+  - Support for multiple job types: `daily`, `weekly`, `interval`, `once`
+  - JSON-based configuration system with `Config/schedule.json`
+  - Automatic script execution with subprocess management
+  - Comprehensive logging to `Logs/scheduler.log`
+  - Job status tracking with `last_run` timestamps
+  - One-time job execution tracking with `executed` flag
+- **Schedule Configuration**: Created `Config/schedule.json` template
+  - Daily posts at 09:00
+  - Interval-based content generation (every 3 hours)
+  - One-time backup jobs with specific datetime
+  - Weekly Monday posts at 10:00
+  - Job enable/disable functionality
+- **Enhanced Testing**: Added 16 new unit tests for scheduler functionality
+  - `test_load_schedule_file_not_found` - Template creation testing
+  - `test_load_schedule_valid_json` - JSON loading validation
+  - `test_load_schedule_invalid_json` - Error handling for malformed JSON
+  - `test_save_schedule` - Schedule persistence testing
+  - `test_run_task_calls_subprocess` - Subprocess execution verification
+  - `test_run_task_script_not_found` - Missing script handling
+  - `test_run_task_success/failure/timeout` - Execution result handling
+  - `test_setup_schedules_*` - All job type scheduling tests
+  - `test_setup_schedules_disabled_job` - Disabled job filtering
+  - `test_setup_schedules_executed_once_job` - One-time job execution logic
 
 ### Technical Details
-- Video posting uses Facebook's resumable upload API v18.0
-- Three-stage process: start session → transfer chunks → finish session
-- Chunk size: 4MB for optimal performance and reliability
-- Status monitoring: up to 10 checks with 5-second intervals
-- Comprehensive logging for debugging upload issues
-- Mock testing covers all upload stages and error conditions
+- **Scheduler Architecture**:
+  - Uses `schedule==1.2.1` library for cron-like functionality
+  - Subprocess execution with 5-minute timeout per task
+  - Automatic directory creation for Config and Logs
+  - JSON configuration with validation and error handling
+  - Real-time job status updates and persistence
+- **Job Types Supported**:
+  - `daily`: Run at specific time every day
+  - `weekly`: Run on specific day and time each week
+  - `interval`: Run every N minutes
+  - `once`: Run once at specific datetime
+- **Error Handling**:
+  - Script existence validation before execution
+  - Timeout handling for long-running tasks
+  - JSON parsing error recovery
+  - Subprocess execution error logging
+- **Logging System**:
+  - Dual output: file (`Logs/scheduler.log`) and console
+  - Detailed execution logs with timestamps
+  - Success/failure status reporting
+  - Error message capture and logging
 
 ### Testing
-- **24/24 tests passing** (18 existing + 6 new video tests)
-- **5/6 validation checks passing** (mypy has minor issues but functional)
-- All video posting scenarios covered with comprehensive mocking
-- Complete resumable upload workflow testing
+- **40/40 tests passing** (24 existing + 16 new scheduler tests)
+- **4/6 validation checks passing** (MyPy has minor issues in other files but validation_runner.py is clean)
+- All scheduler scenarios covered with comprehensive mocking
+- Complete subprocess execution testing
+- JSON configuration handling validation
+
+### Dependencies
+- Added `schedule==1.2.1` to requirements.txt
+- Enhanced type annotations with `Optional`, `Callable`, `List`, `Tuple`

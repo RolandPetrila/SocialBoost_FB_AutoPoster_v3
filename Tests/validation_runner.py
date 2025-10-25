@@ -11,7 +11,7 @@ import subprocess
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any, Tuple
+from typing import Dict, List, Any, Tuple, Optional, Callable
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -27,13 +27,13 @@ logger = logging.getLogger(__name__)
 class ValidationRunner:
     """Comprehensive validation system for the project."""
     
-    def __init__(self, project_root: Path = None):
+    def __init__(self, project_root: Optional[Path] = None):
         self.project_root = project_root or Path.cwd()
         self.logs_dir = Path("Logs")
         self.logs_dir.mkdir(parents=True, exist_ok=True)
         
         # Validation results
-        self.results = {
+        self.results: Dict[str, Any] = {
             "timestamp": datetime.now().isoformat(),
             "project_root": str(self.project_root),
             "validation_steps": {},
@@ -47,7 +47,7 @@ class ValidationRunner:
         }
         
         # Validation steps configuration
-        self.validation_steps = [
+        self.validation_steps: List[Tuple[str, Callable[[], Tuple[bool, str, List[str]]]]] = [
             ("syntax_check", self.run_syntax_check),
             ("pytest", self.run_pytest),
             ("flake8", self.run_flake8),
@@ -63,7 +63,7 @@ class ValidationRunner:
         if quick:
             logger.info("Running in QUICK mode - skipping some checks")
             # Quick mode: only run essential checks
-            quick_steps = [("syntax_check", self.run_syntax_check), ("pytest", self.run_pytest)]
+            quick_steps: List[Tuple[str, Callable[[], Tuple[bool, str, List[str]]]]] = [("syntax_check", self.run_syntax_check), ("pytest", self.run_pytest)]
             self.validation_steps = quick_steps
         
         self.results["summary"]["total_steps"] = len(self.validation_steps)
@@ -337,7 +337,7 @@ class ValidationRunner:
         
         return True, f"Import check passed for {len(python_files)} files", warnings
     
-    def save_results(self, output_file: Path = None) -> Path:
+    def save_results(self, output_file: Optional[Path] = None) -> Path:
         """Save validation results to JSON file."""
         if not output_file:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
