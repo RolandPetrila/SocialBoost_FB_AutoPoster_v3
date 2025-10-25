@@ -1,0 +1,8 @@
+# Core Dependencies (will be expanded later)
+python-dotenv==1.0.1
+requests==2.32.3
+# Development/Validation Dependencies
+pytest>=7.4.0
+flake8>=6.1.0
+mypy>=1.5.0
+bandit>=1.7.5

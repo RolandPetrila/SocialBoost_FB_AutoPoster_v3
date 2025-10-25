@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+.env
+.venv
+venv/
+ENV/
+env.bak/
+
+# Logs and Backups
+Logs/
+Backups/
+*.log
+*.swp
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Config (sensitive)
+Config/config_keys.json 
+
+# IDE specific
+.vscode/
+.idea/
+
+# Generated context / prompts
+Prompts/Generated/
+Prompts/CURRENT_CONTEXT.md
+Prompts/SESSION_STATE.md
+
+# Update folder for communication
+Update_AI/
+
+# Testing artifacts
+.pytest_cache/
+.coverage
+htmlcov/

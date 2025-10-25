@@ -1,0 +1,48 @@
+# Cursor AI Rules for SocialBoost_FB_AutoPoster_v3
+
+## Context Project
+- Root: Read from PROJECT_CONTEXT.json
+- Structure: Follow structure defined in Phase 1
+- Status: Check PROJECT_CONTEXT.json before modifying
+
+## Execution Rules
+1. **ALWAYS Read PROJECT_CONTEXT.json and Prompts/CURRENT_CONTEXT.md** before ANY modification.
+2. **NEVER modify files outside the root** specified in PROJECT_CONTEXT.json.
+3. **Create backup** (`python backup_manager.py`) before major changes (implementing new core modules).
+4. **Run validation** (`python Tests/validation_runner.py`) after EVERY modification generating code.
+5. **Update CHANGELOG.md** (create if not exists) for every significant change.
+6. **Copy status files to Update_AI/** after successful execution as instructed.
+
+## Priority Commands
+- Before new code: `python Tests/validation_runner.py --quick` (or similar check)
+- After modifications: `python Tests/validation_runner.py`
+- For debugging: Check `Logs/RunAll/<latest>/`
+
+## Critical Files (Do NOT edit directly without explicit confirmation)
+- orchestrator.py
+- backup_manager.py
+- restore_manager.py
+- PROJECT_CONTEXT.json
+- .github/workflows/*.yml
+- .env
+
+## Commit Message Format
+```
+<type>(<scope>): <description>
+
+[optional body]
+
+Types: feat, fix, docs, style, refactor, test, chore, ci
+```
+
+## Standard Workflow
+1. Read `PROJECT_TODO.md` / Task instruction.
+2. Read `Prompts/CURRENT_CONTEXT.md`.
+3. Create/modify code.
+4. Write/update tests in `Tests/`.
+5. Run `python Tests/validation_runner.py`.
+6. Update `Docs/CHANGELOG.md`.
+7. Update `PROJECT_TODO.md` (mark task done).
+8. Update `PROJECT_CONTEXT.json` (stage, last_run).
+9. Commit with standard message.
+10. Copy files to `Update_AI/`.
