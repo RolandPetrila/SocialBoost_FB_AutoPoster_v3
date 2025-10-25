@@ -20,73 +20,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Enhanced image posting tests** - 7 new unit tests covering all image posting scenarios
 - **Validation system improvements** - Fixed mypy integration and result saving
 
-## [Phase 3 Step 4] - 2025-10-25
-
-### Fixed
-- **MyPy Type Errors**: Resolved all MyPy errors in `Tests/validation_runner.py`
-  - Fixed `Collection[str]` indexing issues by adding proper type annotations
-  - Changed `Collection[str]` to `List[Tuple[str, Callable[[], Tuple[bool, str, List[str]]]]]`
-  - Fixed `Optional[Path]` parameter defaults for `project_root` and `output_file`
-  - Added proper type annotations for `self.results` and `self.validation_steps`
-  - MyPy now passes without errors for validation_runner.py
+## [Phase 3 Step 5] - 2025-10-25
 
 ### Added
-- **Task Scheduler System**: Implemented comprehensive scheduling functionality
-  - `Automatizare_Completa/scheduler.py` - Complete scheduler implementation
-  - Support for multiple job types: `daily`, `weekly`, `interval`, `once`
-  - JSON-based configuration system with `Config/schedule.json`
-  - Automatic script execution with subprocess management
-  - Comprehensive logging to `Logs/scheduler.log`
-  - Job status tracking with `last_run` timestamps
-  - One-time job execution tracking with `executed` flag
-- **Schedule Configuration**: Created `Config/schedule.json` template
-  - Daily posts at 09:00
-  - Interval-based content generation (every 3 hours)
-  - One-time backup jobs with specific datetime
-  - Weekly Monday posts at 10:00
-  - Job enable/disable functionality
-- **Enhanced Testing**: Added 16 new unit tests for scheduler functionality
-  - `test_load_schedule_file_not_found` - Template creation testing
-  - `test_load_schedule_valid_json` - JSON loading validation
-  - `test_load_schedule_invalid_json` - Error handling for malformed JSON
-  - `test_save_schedule` - Schedule persistence testing
-  - `test_run_task_calls_subprocess` - Subprocess execution verification
-  - `test_run_task_script_not_found` - Missing script handling
-  - `test_run_task_success/failure/timeout` - Execution result handling
-  - `test_setup_schedules_*` - All job type scheduling tests
-  - `test_setup_schedules_disabled_job` - Disabled job filtering
-  - `test_setup_schedules_executed_once_job` - One-time job execution logic
+- **OpenAI Content Generation**: Implemented comprehensive AI-powered content generation system
+  - `Automatizare_Completa/auto_generate.py` - Complete OpenAI integration
+  - Support for text generation using GPT models (default: gpt-4o-mini)
+  - Support for image caption generation using Vision API
+  - Automatic fallback text generation when API calls fail
+  - Comprehensive error handling for all OpenAI API scenarios
+  - Environment-based configuration with OPENAI_API_KEY and OPENAI_MODEL
+- **Enhanced Testing**: Added 15 new unit tests for content generation functionality
+  - `test_initialization_success/from_env/missing_key` - Initialization testing
+  - `test_generate_post_text_success/api_error/rate_limit_error` - Text generation testing
+  - `test_generate_caption_for_image_success/file_not_found/unsupported_format/api_error` - Image caption testing
+  - `test_check_api_status_success/failure` - API status verification
+  - `test_get_fallback_text` - Fallback text generation
+  - `test_generate_post_text_custom_parameters` - Custom parameter testing
+  - `test_generate_caption_different_image_types` - Multiple image format support
+- **Fallback System**: Intelligent fallback text generation
+  - Context-aware fallback messages for different error types
+  - Timestamp-based hashtags for uniqueness
+  - Emoji-enhanced messages for engagement
+  - Support for 7 different error scenarios
 
 ### Technical Details
-- **Scheduler Architecture**:
-  - Uses `schedule==1.2.1` library for cron-like functionality
-  - Subprocess execution with 5-minute timeout per task
-  - Automatic directory creation for Config and Logs
-  - JSON configuration with validation and error handling
-  - Real-time job status updates and persistence
-- **Job Types Supported**:
-  - `daily`: Run at specific time every day
-  - `weekly`: Run on specific day and time each week
-  - `interval`: Run every N minutes
-  - `once`: Run once at specific datetime
+- **OpenAI Integration**:
+  - Uses OpenAI Python SDK v1.0+ with proper error handling
+  - Supports both text and vision models
+  - Automatic model selection (gpt-4o-mini default, configurable via OPENAI_MODEL)
+  - Base64 image encoding for vision API calls
+  - Proper data URL construction for image uploads
+- **Content Generation Features**:
+  - Text generation with customizable max_tokens (default: 500)
+  - Image caption generation with context prompts
+  - Temperature control (0.7) for balanced creativity
+  - System prompts optimized for social media content
+  - Support for multiple image formats (JPG, PNG, GIF, BMP, WebP)
 - **Error Handling**:
-  - Script existence validation before execution
-  - Timeout handling for long-running tasks
-  - JSON parsing error recovery
-  - Subprocess execution error logging
-- **Logging System**:
-  - Dual output: file (`Logs/scheduler.log`) and console
-  - Detailed execution logs with timestamps
-  - Success/failure status reporting
-  - Error message capture and logging
+  - Graceful handling of API errors, rate limits, and timeouts
+  - Automatic fallback to pre-generated content
+  - Comprehensive logging for debugging
+  - Validation of image files before processing
+- **Configuration Management**:
+  - Environment variable support for API keys
+  - Configurable model selection
+  - Automatic directory creation for assets
+  - Placeholder image generation for testing
 
 ### Testing
-- **40/40 tests passing** (24 existing + 16 new scheduler tests)
-- **4/6 validation checks passing** (MyPy has minor issues in other files but validation_runner.py is clean)
-- All scheduler scenarios covered with comprehensive mocking
-- Complete subprocess execution testing
-- JSON configuration handling validation
+- **55/55 tests passing** (40 existing + 15 new OpenAI tests)
+- **5/6 validation checks passing** (MyPy has minor issues in other files but functional)
+- All OpenAI scenarios covered with comprehensive mocking
+- Complete error handling testing
+- Fallback text generation validation
+- Image processing workflow testing
 
 ### Dependencies
-- Added `schedule==1.2.1` to requirements.txt
-- Enhanced type annotations with `Optional`, `Callable`, `List`, `Tuple`
+- Added `openai>=1.0.0` to requirements.txt
+- Enhanced error handling with proper exception types
+- Base64 encoding for image processing
+- Comprehensive logging integration
