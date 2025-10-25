@@ -29,6 +29,9 @@
 - [x] **Implement GUI Scheduling Tab** - Full scheduling interface with add, delete, list functionality
 - [x] **Integrate asset selection with posting functionality** - Complete integration of selected_assets.json with auto_post.py
 - [x] **Implement automatic media rotation logic** - Complete asset rotation system with tracking and intelligent selection
+- [x] **Fix Git lock issue** - Resolved Git repository lock error preventing commits
+- [x] **Fix MyPy errors** - Resolved all remaining type checking errors in helper scripts
+- [x] **Implement GUI Logs Tab** - Complete logs viewing with auto-refresh functionality
 
 ### Current Tasks (Phase 4)
 - [ ] Add drag-and-drop support for assets

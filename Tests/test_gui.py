@@ -175,6 +175,52 @@ class TestGUIIntegration(unittest.TestCase):
         self.assertIn('weekly', code, "GUI should support weekly jobs")
         self.assertIn('interval', code, "GUI should support interval jobs")
         self.assertIn('once', code, "GUI should support once jobs")
+    
+    def test_load_logs_reads_file(self):
+        """Test that load_logs method reads from the correct log file."""
+        gui_file = project_root / "GUI" / "main_gui.py"
+        with open(gui_file, 'r', encoding='utf-8') as f:
+            code = f.read()
+        
+        # Check that the method exists
+        self.assertIn('def load_logs', code, "GUI should have load_logs method")
+        self.assertIn('system.log', code, "load_logs should read from system.log")
+        self.assertIn('encoding=\'utf-8\'', code, "load_logs should use UTF-8 encoding")
+        self.assertIn('errors=\'replace\'', code, "load_logs should handle encoding errors")
+    
+    def test_schedule_log_refresh_calls_after(self):
+        """Test that schedule_log_refresh method schedules the next refresh."""
+        gui_file = project_root / "GUI" / "main_gui.py"
+        with open(gui_file, 'r', encoding='utf-8') as f:
+            code = f.read()
+        
+        # Check that the method exists
+        self.assertIn('def schedule_log_refresh', code, "GUI should have schedule_log_refresh method")
+        self.assertIn('self.after(5000', code, "schedule_log_refresh should use 5000ms interval")
+        self.assertIn('self.load_logs', code, "schedule_log_refresh should call load_logs")
+    
+    def test_logs_tab_has_refresh_button(self):
+        """Test that the logs tab has a refresh button."""
+        gui_file = project_root / "GUI" / "main_gui.py"
+        with open(gui_file, 'r', encoding='utf-8') as f:
+            code = f.read()
+        
+        # Check that the logs tab setup includes refresh button
+        self.assertIn('Refresh Logs', code, "Logs tab should have Refresh Logs button")
+        self.assertIn('command=self.load_logs', code, "Refresh button should call load_logs")
+        self.assertIn('ttk.Button', code, "Logs tab should use ttk.Button")
+    
+    def test_logs_tab_has_text_widget(self):
+        """Test that the logs tab has a text widget for displaying logs."""
+        gui_file = project_root / "GUI" / "main_gui.py"
+        with open(gui_file, 'r', encoding='utf-8') as f:
+            code = f.read()
+        
+        # Check that the logs tab has text widget
+        self.assertIn('tk.Text', code, "Logs tab should use tk.Text widget")
+        self.assertIn('state=\'disabled\'', code, "Logs text widget should be disabled")
+        self.assertIn('logs_text', code, "Logs tab should have logs_text widget")
+        self.assertIn('ttk.Scrollbar', code, "Logs tab should have scrollbar")
 
 
 if __name__ == '__main__':

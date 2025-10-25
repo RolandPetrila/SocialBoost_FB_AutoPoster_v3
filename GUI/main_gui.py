@@ -345,16 +345,39 @@ class SocialBoostApp(tk.Tk):
         title_label = ttk.Label(self.logs_frame, text="Loguri Sistem", font=('Arial', 16, 'bold'))
         title_label.pack(pady=10)
         
+        # Control frame for refresh button
+        control_frame = ttk.Frame(self.logs_frame)
+        control_frame.pack(fill='x', padx=10, pady=5)
+        
+        refresh_button = ttk.Button(control_frame, text="Refresh Logs", command=self.load_logs)
+        refresh_button.pack(side='left', padx=(0, 10))
+        
+        # Log file path label
+        self.log_file_path = self.PROJECT_ROOT / "Logs" / "system.log"
+        self.log_path_label = ttk.Label(control_frame, text=f"Log file: {self.log_file_path.name}")
+        self.log_path_label.pack(side='left')
+        
         # Logs display
         logs_frame = ttk.LabelFrame(self.logs_frame, text="Loguri Recente", padding=10)
         logs_frame.pack(fill='both', expand=True, padx=10, pady=5)
         
-        self.logs_text = scrolledtext.ScrolledText(logs_frame, height=15, wrap=tk.WORD, state='disabled')
-        self.logs_text.pack(fill='both', expand=True)
+        # Create text widget with scrollbar
+        text_frame = ttk.Frame(logs_frame)
+        text_frame.pack(fill='both', expand=True)
         
-        # Add some sample logs
-        self.add_log("Aplicația SocialBoost a fost inițializată cu succes.")
-        self.add_log("GUI-ul este gata pentru utilizare.")
+        self.logs_text = tk.Text(text_frame, height=15, wrap=tk.WORD, state='disabled', 
+                                font=('Consolas', 9), bg='#f8f8f8')
+        scrollbar = ttk.Scrollbar(text_frame, orient='vertical', command=self.logs_text.yview)
+        self.logs_text.configure(yscrollcommand=scrollbar.set)
+        
+        self.logs_text.pack(side='left', fill='both', expand=True)
+        scrollbar.pack(side='right', fill='y')
+        
+        # Initialize logs
+        self.load_logs()
+        
+        # Start auto-refresh
+        self.schedule_log_refresh()
         
     def setup_queue(self) -> None:
         """Setup the queue for thread-safe GUI updates."""
@@ -390,6 +413,74 @@ class SocialBoostApp(tk.Tk):
         elif msg_type == 'success':
             messagebox.showinfo("Succes", message.get('text', 'Operațiunea a fost finalizată cu succes.'))
             
+    def load_logs(self) -> None:
+        """Load log content from the log file."""
+        try:
+            # Enable text widget for editing
+            self.logs_text.config(state='normal')
+            
+            # Clear current content
+            self.logs_text.delete('1.0', tk.END)
+            
+            # Check if log file exists
+            if not self.log_file_path.exists():
+                # Create a sample log file if it doesn't exist
+                self.create_sample_log()
+            
+            # Read log file content
+            try:
+                with open(self.log_file_path, 'r', encoding='utf-8', errors='replace') as f:
+                    content = f.read()
+                    
+                # If file is too large, read only last 1000 lines
+                lines = content.split('\n')
+                if len(lines) > 1000:
+                    content = '\n'.join(lines[-1000:])
+                    content = f"... (showing last 1000 lines)\n{content}"
+                
+                # Insert content
+                self.logs_text.insert(tk.END, content)
+                
+            except FileNotFoundError:
+                self.logs_text.insert(tk.END, f"Log file not found: {self.log_file_path}\n")
+            except Exception as e:
+                self.logs_text.insert(tk.END, f"Error reading log file: {str(e)}\n")
+            
+            # Auto-scroll to end
+            self.logs_text.see(tk.END)
+            
+        except Exception as e:
+            # Fallback error handling
+            self.logs_text.insert(tk.END, f"Error loading logs: {str(e)}\n")
+        finally:
+            # Disable text widget
+            self.logs_text.config(state='disabled')
+    
+    def create_sample_log(self) -> None:
+        """Create a sample log file if it doesn't exist."""
+        try:
+            # Ensure Logs directory exists
+            self.log_file_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Create sample log content
+            sample_content = f"""2025-10-25 20:00:00 - SocialBoost - INFO - Application started
+2025-10-25 20:00:01 - SocialBoost - INFO - GUI initialized successfully
+2025-10-25 20:00:02 - SocialBoost - INFO - Logs tab loaded
+2025-10-25 20:00:03 - SocialBoost - INFO - Auto-refresh enabled
+"""
+            
+            with open(self.log_file_path, 'w', encoding='utf-8') as f:
+                f.write(sample_content)
+                
+        except Exception as e:
+            print(f"Error creating sample log: {e}")
+    
+    def schedule_log_refresh(self) -> None:
+        """Schedule the next log refresh."""
+        self.load_logs()
+        # Schedule next refresh in 5 seconds
+        self.after(5000, self.schedule_log_refresh)
+    
     def add_log(self, message: str) -> None:
         """Add a log message to the logs tab."""
         self.logs_text.config(state='normal')
