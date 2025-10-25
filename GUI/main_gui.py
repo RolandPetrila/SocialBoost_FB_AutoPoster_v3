@@ -94,32 +94,125 @@ class SocialBoostApp(tk.Tk):
         title_label = ttk.Label(self.control_frame, text="Control Panel", font=('Arial', 16, 'bold'))
         title_label.pack(pady=10)
         
-        # Status frame
-        status_frame = ttk.LabelFrame(self.control_frame, text="Status", padding=10)
-        status_frame.pack(fill='x', padx=10, pady=5)
+        # Main container with two sections
+        main_container = ttk.Frame(self.control_frame)
+        main_container.pack(fill='both', expand=True, padx=10, pady=5)
         
-        self.status_label = ttk.Label(status_frame, text="Ready", foreground='green')
-        self.status_label.pack()
+        # Left side - Status Information
+        left_frame = ttk.LabelFrame(main_container, text="Project Status", padding=10)
+        left_frame.pack(side='left', fill='both', expand=True, padx=5)
         
-        # Action buttons frame
-        actions_frame = ttk.LabelFrame(self.control_frame, text="Quick Actions", padding=10)
-        actions_frame.pack(fill='x', padx=10, pady=5)
+        # Project information labels
+        self.project_name_label = ttk.Label(left_frame, text="Project: Loading...", font=('Arial', 10, 'bold'))
+        self.project_name_label.pack(anchor='w', pady=2)
+        
+        self.current_stage_label = ttk.Label(left_frame, text="Stage: Loading...")
+        self.current_stage_label.pack(anchor='w', pady=2)
+        
+        self.last_commit_label = ttk.Label(left_frame, text="Last Commit: Loading...")
+        self.last_commit_label.pack(anchor='w', pady=2)
+        
+        self.last_run_label = ttk.Label(left_frame, text="Last Run: Loading...")
+        self.last_run_label.pack(anchor='w', pady=2)
+        
+        # Health status
+        self.health_status_label = ttk.Label(left_frame, text="Health: Unknown", font=('Arial', 10, 'bold'))
+        self.health_status_label.pack(anchor='w', pady=(10, 2))
+        
+        self.health_score_label = ttk.Label(left_frame, text="Score: 0.00")
+        self.health_score_label.pack(anchor='w', pady=2)
+        
+        # Refresh status button
+        refresh_status_btn = ttk.Button(left_frame, text="Refresh Status", command=self.load_project_status_gui)
+        refresh_status_btn.pack(pady=10)
+        
+        # Right side - Quick Actions
+        right_frame = ttk.LabelFrame(main_container, text="Quick Actions", padding=10)
+        right_frame.pack(side='right', fill='both', expand=True, padx=5)
+        
+        # Health check button
+        self.health_check_btn = ttk.Button(
+            right_frame, 
+            text="Run Health Check", 
+            command=self.run_health_check
+        )
+        self.health_check_btn.pack(fill='x', pady=5)
+        
+        # Backup button
+        self.backup_btn = ttk.Button(
+            right_frame, 
+            text="Create Backup", 
+            command=self.run_backup
+        )
+        self.backup_btn.pack(fill='x', pady=5)
+        
+        # Scheduler control buttons
+        scheduler_frame = ttk.LabelFrame(right_frame, text="Scheduler Control", padding=5)
+        scheduler_frame.pack(fill='x', pady=5)
+        
+        self.start_scheduler_btn = ttk.Button(
+            scheduler_frame, 
+            text="Start Scheduler", 
+            command=self.start_scheduler
+        )
+        self.start_scheduler_btn.pack(fill='x', pady=2)
+        
+        self.stop_scheduler_btn = ttk.Button(
+            scheduler_frame, 
+            text="Stop Scheduler", 
+            command=self.stop_scheduler,
+            state='disabled'
+        )
+        self.stop_scheduler_btn.pack(fill='x', pady=2)
+        
+        # Test actions frame
+        test_frame = ttk.LabelFrame(right_frame, text="Test Actions", padding=5)
+        test_frame.pack(fill='x', pady=5)
         
         # Test post button
         self.test_post_btn = ttk.Button(
-            actions_frame, 
+            test_frame, 
             text="Postează Text Test", 
             command=self.run_post_text
         )
-        self.test_post_btn.pack(side='left', padx=5)
+        self.test_post_btn.pack(fill='x', pady=2)
         
         # Generate test button
         self.test_generate_btn = ttk.Button(
-            actions_frame, 
+            test_frame, 
             text="Generează Text Test", 
             command=self.run_generate_text_test
         )
-        self.test_generate_btn.pack(side='left', padx=5)
+        self.test_generate_btn.pack(fill='x', pady=2)
+        
+        # Recent logs frame
+        logs_frame = ttk.LabelFrame(self.control_frame, text="Recent Logs", padding=10)
+        logs_frame.pack(fill='both', expand=True, padx=10, pady=5)
+        
+        # Logs text widget
+        logs_text_frame = ttk.Frame(logs_frame)
+        logs_text_frame.pack(fill='both', expand=True)
+        
+        self.control_logs_text = tk.Text(
+            logs_text_frame, 
+            height=8, 
+            wrap=tk.WORD, 
+            state='disabled',
+            font=('Consolas', 9), 
+            bg='#f8f8f8'
+        )
+        logs_scrollbar = ttk.Scrollbar(logs_text_frame, orient='vertical', command=self.control_logs_text.yview)
+        self.control_logs_text.configure(yscrollcommand=logs_scrollbar.set)
+        
+        self.control_logs_text.pack(side='left', fill='both', expand=True)
+        logs_scrollbar.pack(side='right', fill='y')
+        
+        # Initialize running processes tracking
+        self.running_processes: Dict[str, subprocess.Popen] = {}
+        
+        # Load initial status
+        self.load_project_status_gui()
+        self.load_recent_logs()
         
     def setup_schedule_tab(self) -> None:
         """Setup the Programare (Scheduling) tab."""
@@ -436,7 +529,9 @@ class SocialBoostApp(tk.Tk):
         msg_type = message.get('type')
         
         if msg_type == 'status':
-            self.status_label.config(text=message.get('text', ''), foreground=message.get('color', 'black'))
+            # Update control tab status if it exists
+            if hasattr(self, 'health_status_label'):
+                self.health_status_label.config(text=f"Status: {message.get('text', '')}", foreground=message.get('color', 'black'))
         elif msg_type == 'result':
             self.result_text.config(state='normal')
             self.result_text.delete(1.0, tk.END)
@@ -444,10 +539,244 @@ class SocialBoostApp(tk.Tk):
             self.result_text.config(state='disabled')
         elif msg_type == 'log':
             self.add_log(message.get('text', ''))
+            # Also add to control tab logs
+            if hasattr(self, 'control_logs_text'):
+                self.add_control_log(message.get('text', ''))
         elif msg_type == 'error':
             messagebox.showerror("Eroare", message.get('text', 'A apărut o eroare necunoscută.'))
         elif msg_type == 'success':
             messagebox.showinfo("Succes", message.get('text', 'Operațiunea a fost finalizată cu succes.'))
+    
+    def load_project_status_gui(self) -> None:
+        """Load project status from PROJECT_CONTEXT.json and health check results."""
+        try:
+            # Load PROJECT_CONTEXT.json
+            context_path = self.PROJECT_ROOT / "PROJECT_CONTEXT.json"
+            if context_path.exists():
+                with open(context_path, 'r', encoding='utf-8') as f:
+                    context_data = json.load(f)
+                
+                self.project_name_label.config(text=f"Project: {context_data.get('project_name', 'Unknown')}")
+                self.current_stage_label.config(text=f"Stage: {context_data.get('current_stage', 'Unknown')}")
+                self.last_commit_label.config(text=f"Last Commit: {context_data.get('last_commit', 'Unknown')}")
+                self.last_run_label.config(text=f"Last Run: {context_data.get('last_run', 'Unknown')}")
+            else:
+                self.project_name_label.config(text="Project: PROJECT_CONTEXT.json not found")
+                self.current_stage_label.config(text="Stage: Unknown")
+                self.last_commit_label.config(text="Last Commit: Unknown")
+                self.last_run_label.config(text="Last Run: Unknown")
+            
+            # Load health check results
+            health_path = self.PROJECT_ROOT / "Logs" / "health_check.json"
+            if health_path.exists():
+                with open(health_path, 'r', encoding='utf-8') as f:
+                    health_data = json.load(f)
+                
+                overall_health = health_data.get('overall_health', 'Unknown')
+                health_score = health_data.get('health_score', 0.0)
+                
+                # Set color based on health status
+                color = 'green' if overall_health == 'Healthy' else 'orange' if overall_health == 'Degraded' else 'red'
+                
+                self.health_status_label.config(text=f"Health: {overall_health}", foreground=color)
+                self.health_score_label.config(text=f"Score: {health_score:.2f}")
+            else:
+                self.health_status_label.config(text="Health: No health check data", foreground='gray')
+                self.health_score_label.config(text="Score: N/A")
+                
+        except Exception as e:
+            self.project_name_label.config(text=f"Error loading status: {str(e)}")
+            self.health_status_label.config(text="Health: Error loading data", foreground='red')
+    
+    def load_recent_logs(self) -> None:
+        """Load recent logs into the control tab logs widget."""
+        try:
+            self.control_logs_text.config(state='normal')
+            self.control_logs_text.delete('1.0', tk.END)
+            
+            log_file_path = self.PROJECT_ROOT / "Logs" / "system.log"
+            if log_file_path.exists():
+                with open(log_file_path, 'r', encoding='utf-8', errors='replace') as f:
+                    content = f.read()
+                
+                # Get last 20 lines
+                lines = content.split('\n')
+                if len(lines) > 20:
+                    content = '\n'.join(lines[-20:])
+                
+                self.control_logs_text.insert(tk.END, content)
+            else:
+                self.control_logs_text.insert(tk.END, "No system log file found.")
+            
+            self.control_logs_text.see(tk.END)
+            
+        except Exception as e:
+            self.control_logs_text.insert(tk.END, f"Error loading logs: {str(e)}")
+        finally:
+            self.control_logs_text.config(state='disabled')
+    
+    def add_control_log(self, message: str) -> None:
+        """Add a log message to the control tab logs."""
+        try:
+            self.control_logs_text.config(state='normal')
+            self.control_logs_text.insert(tk.END, f"{message}\n")
+            self.control_logs_text.see(tk.END)
+        finally:
+            self.control_logs_text.config(state='disabled')
+    
+    def run_health_check(self) -> None:
+        """Run health check script in a separate thread."""
+        self.health_check_btn.config(state='disabled')
+        self.queue.put({'type': 'log', 'text': 'Starting health check...'})
+        
+        thread = threading.Thread(target=self._run_health_check_thread)
+        thread.daemon = True
+        thread.start()
+    
+    def _run_health_check_thread(self) -> None:
+        """Thread function for running health check."""
+        try:
+            script_path = self.PROJECT_ROOT / "Automatizare_Completa" / "health_check.py"
+            
+            if not script_path.exists():
+                self.queue.put({'type': 'error', 'text': f'Health check script not found: {script_path}'})
+                return
+            
+            result = subprocess.run(
+                [sys.executable, str(script_path)],
+                capture_output=True,
+                text=True,
+                cwd=str(self.PROJECT_ROOT)
+            )
+            
+            if result.returncode == 0:
+                self.queue.put({'type': 'success', 'text': 'Health check completed successfully!'})
+                self.queue.put({'type': 'log', 'text': 'Health check completed - see Logs/health_check.json for details'})
+                # Refresh status after health check
+                self.after(0, self.load_project_status_gui)
+            else:
+                error_msg = result.stderr or "Unknown error during health check"
+                self.queue.put({'type': 'error', 'text': f'Health check failed: {error_msg}'})
+                self.queue.put({'type': 'log', 'text': f'Health check error: {error_msg}'})
+                
+        except Exception as e:
+            self.queue.put({'type': 'error', 'text': f'Error running health check: {str(e)}'})
+            self.queue.put({'type': 'log', 'text': f'Health check exception: {str(e)}'})
+        finally:
+            self.after(0, lambda: self.health_check_btn.config(state='normal'))
+    
+    def run_backup(self) -> None:
+        """Run backup script in a separate thread."""
+        self.backup_btn.config(state='disabled')
+        self.queue.put({'type': 'log', 'text': 'Starting backup...'})
+        
+        thread = threading.Thread(target=self._run_backup_thread)
+        thread.daemon = True
+        thread.start()
+    
+    def _run_backup_thread(self) -> None:
+        """Thread function for running backup."""
+        try:
+            script_path = self.PROJECT_ROOT / "backup_manager.py"
+            
+            if not script_path.exists():
+                self.queue.put({'type': 'error', 'text': f'Backup script not found: {script_path}'})
+                return
+            
+            result = subprocess.run(
+                [sys.executable, str(script_path)],
+                capture_output=True,
+                text=True,
+                cwd=str(self.PROJECT_ROOT)
+            )
+            
+            if result.returncode == 0:
+                self.queue.put({'type': 'success', 'text': 'Backup created successfully!'})
+                self.queue.put({'type': 'log', 'text': 'Backup completed successfully'})
+            else:
+                error_msg = result.stderr or "Unknown error during backup"
+                self.queue.put({'type': 'error', 'text': f'Backup failed: {error_msg}'})
+                self.queue.put({'type': 'log', 'text': f'Backup error: {error_msg}'})
+                
+        except Exception as e:
+            self.queue.put({'type': 'error', 'text': f'Error running backup: {str(e)}'})
+            self.queue.put({'type': 'log', 'text': f'Backup exception: {str(e)}'})
+        finally:
+            self.after(0, lambda: self.backup_btn.config(state='normal'))
+    
+    def start_scheduler(self) -> None:
+        """Start the scheduler process."""
+        try:
+            # Check if scheduler is already running
+            if 'scheduler' in self.running_processes:
+                process = self.running_processes['scheduler']
+                if process.poll() is None:  # Process is still running
+                    messagebox.showwarning("Warning", "Scheduler is already running!")
+                    return
+            
+            script_path = self.PROJECT_ROOT / "Automatizare_Completa" / "scheduler.py"
+            
+            if not script_path.exists():
+                messagebox.showerror("Error", f"Scheduler script not found: {script_path}")
+                return
+            
+            # Start scheduler process
+            process = subprocess.Popen(
+                [sys.executable, str(script_path)],
+                cwd=str(self.PROJECT_ROOT),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            
+            self.running_processes['scheduler'] = process
+            
+            # Update button states
+            self.start_scheduler_btn.config(state='disabled')
+            self.stop_scheduler_btn.config(state='normal')
+            
+            self.queue.put({'type': 'success', 'text': 'Scheduler started successfully!'})
+            self.queue.put({'type': 'log', 'text': f'Scheduler started with PID: {process.pid}'})
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to start scheduler: {str(e)}")
+            self.queue.put({'type': 'log', 'text': f'Scheduler start error: {str(e)}'})
+    
+    def stop_scheduler(self) -> None:
+        """Stop the scheduler process."""
+        try:
+            if 'scheduler' not in self.running_processes:
+                messagebox.showwarning("Warning", "No scheduler process found!")
+                return
+            
+            process = self.running_processes['scheduler']
+            
+            if process.poll() is None:  # Process is still running
+                # Try graceful termination first
+                process.terminate()
+                
+                # Wait a bit for graceful shutdown
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    # Force kill if graceful termination failed
+                    process.kill()
+                    process.wait()
+                
+                self.queue.put({'type': 'success', 'text': 'Scheduler stopped successfully!'})
+                self.queue.put({'type': 'log', 'text': 'Scheduler stopped'})
+            else:
+                self.queue.put({'type': 'log', 'text': 'Scheduler was not running'})
+            
+            # Remove from tracking
+            del self.running_processes['scheduler']
+            
+            # Update button states
+            self.start_scheduler_btn.config(state='normal')
+            self.stop_scheduler_btn.config(state='disabled')
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to stop scheduler: {str(e)}")
+            self.queue.put({'type': 'log', 'text': f'Scheduler stop error: {str(e)}'})
             
     def load_logs(self) -> None:
         """Load log content from the log file."""

@@ -32,6 +32,23 @@
 - [x] **Fix Git lock issue** - Resolved Git repository lock error preventing commits
 - [x] **Fix MyPy errors** - Resolved all remaining type checking errors in helper scripts
 - [x] **Implement GUI Logs Tab** - Complete logs viewing with auto-refresh functionality
+- [x] **Implement Health Check System** - Complete system health monitoring and validation
+  - [x] Created `Automatizare_Completa/health_check.py` with comprehensive HealthCheck class
+  - [x] Implemented 6 health checks: Python version, Git repository, required files, dependencies, GitHub connectivity, disk space
+  - [x] Added health scoring system with weighted calculation (Healthy/Degraded/Warning/Critical)
+  - [x] Implemented JSON report generation to `Logs/health_check.json`
+  - [x] Added command line interface with project root, output, and quiet options
+  - [x] Created comprehensive unit tests for all health check functionality
+- [x] **Implement Control/Status Tab** - Complete project monitoring and control interface
+  - [x] Enhanced Control/Status tab with two-panel layout (status info + quick actions)
+  - [x] Added real-time project status display from `PROJECT_CONTEXT.json`
+  - [x] Implemented health status integration with live health score display
+  - [x] Added quick actions panel: Health Check, Backup, Start/Stop Scheduler
+  - [x] Implemented scheduler process management with PID tracking
+  - [x] Added recent logs display with last 20 lines from `Logs/system.log`
+  - [x] Implemented thread-safe execution for all operations
+  - [x] Added comprehensive unit tests for GUI integration
+  - [x] Updated documentation and project status
 
 ### Current Tasks (Phase 4)
 - [x] **Refine GUI Text Generation Tab** - Complete refinement of Text Generation tab functionality

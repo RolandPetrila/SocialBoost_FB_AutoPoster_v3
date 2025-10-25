@@ -279,6 +279,142 @@ class TestGUIIntegration(unittest.TestCase):
         self.assertIn('selected_assets_path', code, "Should use selected_assets_path")
         self.assertIn('image_count', code, "Should count images")
         self.assertIn('video_count', code, "Should count videos")
+    
+    def test_control_tab_has_required_methods(self):
+        """Test that Control/Status tab has required methods."""
+        gui_file = project_root / "GUI" / "main_gui.py"
+        with open(gui_file, 'r', encoding='utf-8') as f:
+            code = f.read()
+        
+        # Check for Control/Status tab methods
+        required_methods = [
+            'load_project_status_gui',
+            'run_health_check',
+            'run_backup',
+            'start_scheduler',
+            'stop_scheduler',
+            'load_recent_logs',
+            'add_control_log'
+        ]
+        
+        for method in required_methods:
+            self.assertIn(f'def {method}', code, f"GUI should have {method} method")
+    
+    def test_control_tab_has_required_widgets(self):
+        """Test that Control/Status tab has required widgets."""
+        gui_file = project_root / "GUI" / "main_gui.py"
+        with open(gui_file, 'r', encoding='utf-8') as f:
+            code = f.read()
+        
+        # Check for Control/Status tab widgets
+        required_widgets = [
+            'project_name_label',
+            'current_stage_label',
+            'last_commit_label',
+            'last_run_label',
+            'health_status_label',
+            'health_score_label',
+            'health_check_btn',
+            'backup_btn',
+            'start_scheduler_btn',
+            'stop_scheduler_btn',
+            'control_logs_text'
+        ]
+        
+        for widget in required_widgets:
+            self.assertIn(widget, code, f"GUI should have {widget} widget")
+    
+    def test_health_check_integration(self):
+        """Test that health check integration is properly implemented."""
+        gui_file = project_root / "GUI" / "main_gui.py"
+        with open(gui_file, 'r', encoding='utf-8') as f:
+            code = f.read()
+        
+        # Check for health check integration
+        self.assertIn('health_check.py', code, "GUI should reference health_check.py")
+        self.assertIn('Logs/health_check.json', code, "GUI should read health check results")
+        self.assertIn('subprocess.run', code, "GUI should use subprocess for health check")
+    
+    def test_scheduler_control_integration(self):
+        """Test that scheduler control is properly implemented."""
+        gui_file = project_root / "GUI" / "main_gui.py"
+        with open(gui_file, 'r', encoding='utf-8') as f:
+            code = f.read()
+        
+        # Check for scheduler control integration
+        self.assertIn('scheduler.py', code, "GUI should reference scheduler.py")
+        self.assertIn('subprocess.Popen', code, "GUI should use Popen for scheduler")
+        self.assertIn('running_processes', code, "GUI should track running processes")
+        self.assertIn('process.terminate', code, "GUI should be able to terminate processes")
+    
+    def test_backup_integration(self):
+        """Test that backup integration is properly implemented."""
+        gui_file = project_root / "GUI" / "main_gui.py"
+        with open(gui_file, 'r', encoding='utf-8') as f:
+            code = f.read()
+        
+        # Check for backup integration
+        self.assertIn('backup_manager.py', code, "GUI should reference backup_manager.py")
+        self.assertIn('subprocess.run', code, "GUI should use subprocess for backup")
+    
+    def test_project_status_loading(self):
+        """Test that project status loading is properly implemented."""
+        gui_file = project_root / "GUI" / "main_gui.py"
+        with open(gui_file, 'r', encoding='utf-8') as f:
+            code = f.read()
+        
+        # Check for project status loading
+        self.assertIn('PROJECT_CONTEXT.json', code, "GUI should read PROJECT_CONTEXT.json")
+        self.assertIn('json.load', code, "GUI should use json.load for context")
+        self.assertIn('project_name', code, "GUI should display project name")
+        self.assertIn('current_stage', code, "GUI should display current stage")
+        self.assertIn('last_commit', code, "GUI should display last commit")
+        self.assertIn('last_run', code, "GUI should display last run")
+    
+    def test_control_tab_logs_integration(self):
+        """Test that control tab logs integration is properly implemented."""
+        gui_file = project_root / "GUI" / "main_gui.py"
+        with open(gui_file, 'r', encoding='utf-8') as f:
+            code = f.read()
+        
+        # Check for logs integration
+        self.assertIn('system.log', code, "GUI should read system.log")
+        self.assertIn('control_logs_text', code, "GUI should have control logs text widget")
+        self.assertIn('add_control_log', code, "GUI should have add_control_log method")
+    
+    @patch('subprocess.run')
+    def test_health_check_button_calls_script(self, mock_run):
+        """Test that health check button calls the correct script."""
+        gui_file = project_root / "GUI" / "main_gui.py"
+        with open(gui_file, 'r', encoding='utf-8') as f:
+            code = f.read()
+        
+        # Check that health check method uses subprocess.run
+        self.assertIn('subprocess.run', code, "Health check should use subprocess.run")
+        self.assertIn('health_check.py', code, "Health check should call health_check.py")
+    
+    @patch('subprocess.Popen')
+    def test_scheduler_start_calls_script(self, mock_popen):
+        """Test that scheduler start calls the correct script."""
+        gui_file = project_root / "GUI" / "main_gui.py"
+        with open(gui_file, 'r', encoding='utf-8') as f:
+            code = f.read()
+        
+        # Check that scheduler start uses subprocess.Popen
+        self.assertIn('subprocess.Popen', code, "Scheduler start should use subprocess.Popen")
+        self.assertIn('scheduler.py', code, "Scheduler start should call scheduler.py")
+    
+    def test_error_handling_in_control_tab(self):
+        """Test that error handling is implemented in control tab methods."""
+        gui_file = project_root / "GUI" / "main_gui.py"
+        with open(gui_file, 'r', encoding='utf-8') as f:
+            code = f.read()
+        
+        # Check for error handling patterns
+        self.assertIn('try:', code, "Control tab methods should have try blocks")
+        self.assertIn('except Exception', code, "Control tab methods should handle exceptions")
+        self.assertIn('messagebox.showerror', code, "Control tab should show error messages")
+        self.assertIn('messagebox.showinfo', code, "Control tab should show success messages")
 
 
 if __name__ == '__main__':
