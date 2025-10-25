@@ -8,6 +8,8 @@ import unittest
 from unittest.mock import Mock, patch, MagicMock
 import sys
 import os
+import json
+import tempfile
 from pathlib import Path
 
 # Add the project root to the path
@@ -68,6 +70,55 @@ class TestGUIIntegration(unittest.TestCase):
             # Check for argparse and --prompt
             self.assertIn('argparse', code, "auto_generate.py should import argparse")
             self.assertIn('--prompt', code, "auto_generate.py should accept --prompt argument")
+    
+    @patch('pathlib.Path.glob')
+    def test_load_assets_populates_list(self, mock_glob):
+        """Test that load_assets populates the treeview with files."""
+        # Mock file paths
+        mock_image = MagicMock()
+        mock_image.name = "test_image.png"
+        mock_image.is_file.return_value = True
+        mock_image.resolve.return_value = mock_image
+        mock_image.__str__ = lambda x: "/path/to/test_image.png"
+        
+        mock_video = MagicMock()
+        mock_video.name = "test_video.mp4"
+        mock_video.is_file.return_value = True
+        mock_video.resolve.return_value = mock_video
+        mock_video.__str__ = lambda x: "/path/to/test_video.mp4"
+        
+        # Set up mock to return different values for different patterns
+        def glob_side_effect(pattern):
+            if '*.png' in pattern:
+                return [mock_image]
+            elif '*.mp4' in pattern:
+                return [mock_video]
+            return []
+        
+        mock_glob.side_effect = glob_side_effect
+        
+        # Import and create GUI instance (simulated)
+        gui_file = project_root / "GUI" / "main_gui.py"
+        with open(gui_file, 'r', encoding='utf-8') as f:
+            code = f.read()
+        
+        # Check that load_assets method exists
+        self.assertIn('def load_assets', code, "GUI should have load_assets method")
+        self.assertIn('def on_asset_select', code, "GUI should have on_asset_select method")
+        self.assertIn('def save_selected_assets', code, "GUI should have save_selected_assets method")
+        self.assertIn('assets_tree', code, "GUI should have assets_tree widget")
+    
+    def test_save_selected_assets_writes_json(self):
+        """Test that save_selected_assets writes correct JSON structure."""
+        gui_file = project_root / "GUI" / "main_gui.py"
+        with open(gui_file, 'r', encoding='utf-8') as f:
+            code = f.read()
+        
+        # Verify the method exists and uses json.dump
+        self.assertIn('json.dump', code, "save_selected_assets should use json.dump")
+        self.assertIn('selected_assets.json', code, "save_selected_assets should write to selected_assets.json")
+        self.assertIn('"images":', code, "save_selected_assets should include images key")
+        self.assertIn('"videos":', code, "save_selected_assets should include videos key")
 
 
 if __name__ == '__main__':

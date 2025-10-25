@@ -1,6 +1,6 @@
 # PROJECT TODO - SocialBoost_FB_AutoPoster_v3
 
-## Current Phase: Phase 3 - Implementing Core Features
+## Current Phase: Phase 4 - Refining GUI & Advanced Features
 
 ### Completed Tasks
 - [x] Create project directory structure
@@ -24,12 +24,16 @@
 - [x] **Implement OpenAI content generation** - Complete AI-powered text and vision generation
 - [x] **Fix MyPy errors in helper scripts** - Resolved type errors in context_builder.py
 - [x] **Add error handling and retry logic** - Implemented robust retry mechanisms for Facebook and OpenAI APIs
+- [x] **Create GUI components** - Basic Tkinter GUI with 5 tabs
+- [x] **Implement GUI Assets Tab** - Complete functionality for listing, previewing, and saving media assets
 
-### Current Tasks (Phase 3)
-- [x] Create GUI components
+### Current Tasks (Phase 4)
+- [ ] Implement GUI Scheduling Tab - Full scheduling interface with time/date pickers
+- [ ] Integrate asset selection with posting functionality
+- [ ] Add drag-and-drop support for assets
+- [ ] Implement bulk operations for asset management
 
 ### Upcoming Phases
-- Phase 4: Advanced Features & GUI
 - Phase 5: Testing & Validation
 - Phase 6: Deployment Setup
 - Phase 7: Documentation & Handover

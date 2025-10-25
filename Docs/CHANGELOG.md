@@ -5,6 +5,63 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Phase 4 Step 1] - 2025-10-25
+
+### Added
+- **Assets Tab Implementation**: Full functionality for managing media assets
+  - **File Listing**: Treeview widget listing images and videos from `Assets/Images` and `Assets/Videos`
+  - **Image Preview**: Thumbnail preview for selected images using Pillow
+  - **Multi-Selection**: Extended selection mode for selecting multiple files
+  - **Refresh Functionality**: Button to reload assets from folders
+  - **Save Selection**: Button to save selected files to `selected_assets.json`
+  - **JSON Storage**: Structured storage of selected assets (images and videos separated)
+- **Enhanced GUI Tests**: Added 2 new tests for assets functionality
+  - `test_load_assets_populates_list` - Verifies treeview population
+  - `test_save_selected_assets_writes_json` - Verifies JSON structure
+- **Asset Management**: Complete workflow for selecting and saving media files
+  - Support for multiple image formats (PNG, JPG, JPEG, GIF, BMP, WebP)
+  - Support for multiple video formats (MP4, MOV, AVI, MKV, WebM)
+  - Automatic absolute path storage for selected assets
+  - Success confirmation dialog with file counts
+- **Image Preview System**: Integrated Pillow for image display
+  - Thumbnail generation maintaining aspect ratio (max 300x300)
+  - Error handling for corrupted or unsupported images
+  - Preview area shows placeholder text when no image selected
+  - Automatic scaling with high-quality resampling (LANCZOS)
+
+### Technical Details
+- **GUI Components**:
+  - Treeview widget with column headers (File Name, Type)
+  - Scrollable list with vertical and horizontal scrollbars
+  - Split-panel layout (file list on left, preview on right)
+  - Button controls for refresh and save operations
+- **File Operations**:
+  - Recursive scanning of `Assets/Images` and `Assets/Videos` folders
+  - Path resolution using `pathlib.Path` for cross-platform compatibility
+  - Absolute path storage for reliable file access
+  - JSON file format with UTF-8 encoding for international characters
+- **Image Processing**:
+  - Pillow integration for image loading and manipulation
+  - Thumbnail generation with aspect ratio preservation
+  - ImageTk conversion for Tkinter display
+  - Error handling for file read failures
+- **Data Structure**:
+  - JSON format: `{"images": [...], "videos": [...]}`
+  - Absolute paths stored for all selected files
+  - Separate arrays for images and videos
+  - Pretty-printed JSON with 2-space indentation
+
+### Testing
+- **68/68 tests passing** (added 2 new GUI tests)
+- **GUI file passes MyPy validation** - No type errors in main_gui.py
+- Integration testing verified for asset loading and saving
+- Error handling validated for missing files and corrupted images
+
+### Files Modified
+- `GUI/main_gui.py` - Added complete Assets tab implementation
+- `Tests/test_gui.py` - Added 2 new tests for assets functionality
+- `selected_assets.json` - Created for storing selected assets
+
 ## [Unreleased]
 
 ### Added

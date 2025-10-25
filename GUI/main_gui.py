@@ -11,9 +11,11 @@ import threading
 import os
 import sys
 import pathlib
+import json
 from dotenv import load_dotenv
 from queue import Queue
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
+from PIL import Image, ImageTk
 
 
 class SocialBoostApp(tk.Tk):
@@ -81,6 +83,10 @@ class SocialBoostApp(tk.Tk):
         self.setup_generate_tab()
         self.setup_logs_tab()
         
+        # Initialize assets tracking
+        self.assets_dict: Dict[str, str] = {}
+        self.preview_image: Optional[ImageTk.PhotoImage] = None
+        
     def setup_control_tab(self) -> None:
         """Setup the Control/Status tab."""
         # Title
@@ -131,12 +137,75 @@ class SocialBoostApp(tk.Tk):
         title_label = ttk.Label(self.assets_frame, text="Gestionare Assets", font=('Arial', 16, 'bold'))
         title_label.pack(pady=10)
         
-        info_label = ttk.Label(
-            self.assets_frame, 
-            text="Gestionarea imaginilor și videoclipurilor va fi implementată în versiunile viitoare.",
+        # Main container
+        main_container = ttk.Frame(self.assets_frame)
+        main_container.pack(fill='both', expand=True, padx=10, pady=5)
+        
+        # Left side - File listing
+        left_frame = ttk.LabelFrame(main_container, text="Fișiere Disponibile", padding=10)
+        left_frame.pack(side='left', fill='both', expand=True, padx=5)
+        
+        # Treeview for file listing
+        tree_frame = ttk.Frame(left_frame)
+        tree_frame.pack(fill='both', expand=True)
+        
+        # Scrollbars
+        vsb = ttk.Scrollbar(tree_frame, orient='vertical')
+        vsb.pack(side='right', fill='y')
+        hsb = ttk.Scrollbar(tree_frame, orient='horizontal')
+        hsb.pack(side='bottom', fill='x')
+        
+        # Treeview
+        self.assets_tree = ttk.Treeview(
+            tree_frame,
+            columns=('type',),
+            show='tree headings',
+            selectmode='extended',
+            yscrollcommand=vsb.set,
+            xscrollcommand=hsb.set
+        )
+        self.assets_tree.heading('#0', text='Nume Fișier')
+        self.assets_tree.heading('type', text='Tip')
+        self.assets_tree.column('type', width=100, anchor='center')
+        self.assets_tree.pack(side='left', fill='both', expand=True)
+        
+        vsb.config(command=self.assets_tree.yview)
+        hsb.config(command=self.assets_tree.xview)
+        
+        # Bind selection event for preview
+        self.assets_tree.bind('<<TreeviewSelect>>', self.on_asset_select)
+        
+        # Buttons frame
+        buttons_frame = ttk.Frame(left_frame)
+        buttons_frame.pack(fill='x', pady=5)
+        
+        self.refresh_btn = ttk.Button(
+            buttons_frame,
+            text="Refresh List",
+            command=self.load_assets
+        )
+        self.refresh_btn.pack(side='left', padx=5)
+        
+        self.save_selection_btn = ttk.Button(
+            buttons_frame,
+            text="Save Selection",
+            command=self.save_selected_assets
+        )
+        self.save_selection_btn.pack(side='left', padx=5)
+        
+        # Right side - Preview
+        right_frame = ttk.LabelFrame(main_container, text="Preview Imagine", padding=10)
+        right_frame.pack(side='right', fill='both', expand=True, padx=5)
+        
+        self.preview_label = ttk.Label(
+            right_frame,
+            text="Selectați o imagine pentru preview",
             foreground='gray'
         )
-        info_label.pack(pady=20)
+        self.preview_label.pack(pady=50)
+        
+        # Load assets on initialization
+        self.load_assets()
         
     def setup_generate_tab(self) -> None:
         """Setup the Generare Text tab."""
@@ -327,6 +396,138 @@ class SocialBoostApp(tk.Tk):
         finally:
             self.queue.put({'type': 'status', 'text': 'Ready', 'color': 'green'})
             self.after(0, lambda: self.test_post_btn.config(state='normal'))
+    
+    def load_assets(self) -> None:
+        """Load assets from Assets/Images and Assets/Videos folders."""
+        # Clear existing items
+        for item in self.assets_tree.get_children():
+            self.assets_tree.delete(item)
+        self.assets_dict.clear()
+        
+        # Define asset directories
+        images_dir = self.PROJECT_ROOT / "Assets" / "Images"
+        videos_dir = self.PROJECT_ROOT / "Assets" / "Videos"
+        
+        # Image extensions
+        image_extensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp']
+        # Video extensions
+        video_extensions = ['.mp4', '.mov', '.avi', '.mkv', '.webm']
+        
+        # Scan Images folder
+        if images_dir.exists():
+            for ext in image_extensions:
+                for file_path in images_dir.glob(f"*{ext}"):
+                    if file_path.is_file():
+                        file_name = file_path.name
+                        absolute_path = str(file_path.resolve())
+                        item_id = self.assets_tree.insert('', 'end', text=file_name, values=('Imagine',))
+                        self.assets_dict[item_id] = absolute_path
+        
+        # Scan Videos folder
+        if videos_dir.exists():
+            for ext in video_extensions:
+                for file_path in videos_dir.glob(f"*{ext}"):
+                    if file_path.is_file():
+                        file_name = file_path.name
+                        absolute_path = str(file_path.resolve())
+                        item_id = self.assets_tree.insert('', 'end', text=file_name, values=('Video',))
+                        self.assets_dict[item_id] = absolute_path
+    
+    def on_asset_select(self, event: Any) -> None:
+        """Handle asset selection for preview."""
+        selected_items = self.assets_tree.selection()
+        
+        if not selected_items:
+            return
+        
+        # Only show preview for single image selection
+        if len(selected_items) != 1:
+            self.preview_label.config(text="Selectați o imagine pentru preview", foreground='gray')
+            self.preview_image = None
+            return
+        
+        item_id = selected_items[0]
+        file_path = self.assets_dict.get(item_id)
+        
+        if not file_path:
+            return
+        
+        # Check if it's an image
+        image_extensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp']
+        if not any(file_path.lower().endswith(ext) for ext in image_extensions):
+            self.preview_label.config(text="Preview disponibil doar pentru imagini", foreground='gray')
+            self.preview_image = None
+            return
+        
+        # Load and display image
+        try:
+            img = Image.open(file_path)
+            
+            # Resize while maintaining aspect ratio
+            max_size = 300
+            img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+            
+            # Convert to PhotoImage
+            self.preview_image = ImageTk.PhotoImage(img)
+            
+            # Update preview label
+            self.preview_label.config(image=self.preview_image, text='')
+            
+        except Exception as e:
+            self.preview_label.config(
+                text=f"Eroare la încărcarea imaginii:\n{str(e)}",
+                foreground='red',
+                image=''
+            )
+            self.preview_image = None
+    
+    def save_selected_assets(self) -> None:
+        """Save selected assets to selected_assets.json."""
+        selected_items = self.assets_tree.selection()
+        
+        if not selected_items:
+            messagebox.showwarning("Avertisment", "Vă rugăm să selectați cel puțin un fișier.")
+            return
+        
+        # Separate images and videos
+        selected_images: List[str] = []
+        selected_videos: List[str] = []
+        
+        image_extensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp']
+        video_extensions = ['.mp4', '.mov', '.avi', '.mkv', '.webm']
+        
+        for item_id in selected_items:
+            file_path = self.assets_dict.get(item_id)
+            if not file_path:
+                continue
+            
+            file_path_lower = file_path.lower()
+            if any(file_path_lower.endswith(ext) for ext in image_extensions):
+                selected_images.append(file_path)
+            elif any(file_path_lower.endswith(ext) for ext in video_extensions):
+                selected_videos.append(file_path)
+        
+        # Create data dictionary
+        data = {
+            "images": selected_images,
+            "videos": selected_videos
+        }
+        
+        # Write to JSON file
+        json_path = self.PROJECT_ROOT / "selected_assets.json"
+        try:
+            with open(json_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+            
+            total = len(selected_images) + len(selected_videos)
+            messagebox.showinfo(
+                "Succes",
+                f"Selecția a fost salvată!\n{len(selected_images)} imagini, {len(selected_videos)} videoclipuri"
+            )
+            self.add_log(f"Assets salvate: {total} fișiere în selected_assets.json")
+        except Exception as e:
+            messagebox.showerror("Eroare", f"Eroare la salvarea selecției:\n{str(e)}")
+            self.add_log(f"Eroare la salvarea assets: {str(e)}")
 
 
 def main() -> None:
