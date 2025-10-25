@@ -27,9 +27,9 @@
 - [x] **Create GUI components** - Basic Tkinter GUI with 5 tabs
 - [x] **Implement GUI Assets Tab** - Complete functionality for listing, previewing, and saving media assets
 - [x] **Implement GUI Scheduling Tab** - Full scheduling interface with add, delete, list functionality
+- [x] **Integrate asset selection with posting functionality** - Complete integration of selected_assets.json with auto_post.py
 
 ### Current Tasks (Phase 4)
-- [ ] Integrate asset selection with posting functionality
 - [ ] Add drag-and-drop support for assets
 - [ ] Implement bulk operations for asset management
 

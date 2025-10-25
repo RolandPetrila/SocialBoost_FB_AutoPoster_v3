@@ -13,7 +13,7 @@ import time
 import argparse
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -495,10 +495,64 @@ class FacebookAutoPost:
         logger.info("Checking token validity...")
         return bool(self.page_token)
 
+def get_assets_to_post(selected_only: bool) -> List[Path]:
+    """Get list of assets to post based on selection mode."""
+    if not selected_only:
+        # TODO: Implement rotation/automatic selection from Assets/ folders
+        logger.info("Using automatic asset selection (not yet implemented)")
+        return []
+    
+    # Read selected_assets.json
+    selected_assets_path = Path("selected_assets.json")
+    
+    try:
+        if not selected_assets_path.exists():
+            logger.warning("selected_assets.json not found")
+            return []
+        
+        with open(selected_assets_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        # Extract image and video paths
+        images = data.get('images', [])
+        videos = data.get('videos', [])
+        
+        # Validate paths and convert to Path objects
+        valid_assets: List[Path] = []
+        
+        for img_path in images:
+            path_obj = Path(img_path)
+            if path_obj.exists() and path_obj.is_file():
+                valid_assets.append(path_obj)
+            else:
+                logger.warning(f"Invalid image path: {img_path}")
+        
+        for vid_path in videos:
+            path_obj = Path(vid_path)
+            if path_obj.exists() and path_obj.is_file():
+                valid_assets.append(path_obj)
+            else:
+                logger.warning(f"Invalid video path: {vid_path}")
+        
+        if not valid_assets:
+            logger.warning("No valid assets found in selected_assets.json")
+            return []
+        
+        logger.info(f"Found {len(valid_assets)} valid assets to post")
+        return valid_assets
+        
+    except json.JSONDecodeError as e:
+        logger.error(f"Error parsing selected_assets.json: {e}")
+        return []
+    except Exception as e:
+        logger.error(f"Error reading selected_assets.json: {e}")
+        return []
+
 def main():
     """Main function for testing and GUI integration."""
     parser = argparse.ArgumentParser(description="Facebook Auto Post Module")
     parser.add_argument("--message", type=str, help="Message to post to Facebook")
+    parser.add_argument("--selected-only", action='store_true', help='Post only assets listed in selected_assets.json')
     args = parser.parse_args()
     
     print("="*60)
@@ -534,6 +588,54 @@ def main():
                         print(f"✓ Post successful! Post ID: {result.get('post_id')}")
                     else:
                         print(f"✗ Post failed: {result.get('error')}")
+                        sys.exit(1)
+                elif args.selected_only:
+                    # Post selected assets
+                    print("\n" + "="*60)
+                    print("Posting selected assets...")
+                    
+                    assets_to_post = get_assets_to_post(True)
+                    
+                    if not assets_to_post:
+                        print("No valid assets found to post. Exiting.")
+                        sys.exit(0)
+                    
+                    print(f"Found {len(assets_to_post)} assets to post")
+                    
+                    success_count = 0
+                    error_count = 0
+                    
+                    for asset_path in assets_to_post:
+                        print(f"\nPosting: {asset_path.name}")
+                        
+                        # Determine asset type
+                        image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
+                        video_extensions = {'.mp4', '.mov', '.avi', '.mkv', '.webm', '.wmv', '.flv'}
+                        
+                        if asset_path.suffix.lower() in image_extensions:
+                            # Post as image
+                            message = f"Posted from SocialBoost v3: {asset_path.stem}"
+                            result = poster.post_image(message, asset_path)
+                        elif asset_path.suffix.lower() in video_extensions:
+                            # Post as video
+                            message = f"Posted from SocialBoost v3: {asset_path.stem}"
+                            result = poster.post_video(message, asset_path)
+                        else:
+                            print(f"✗ Unsupported file type: {asset_path.suffix}")
+                            error_count += 1
+                            continue
+                        
+                        if result["status"] == "success":
+                            print(f"✓ Posted successfully! ID: {result.get('post_id', result.get('video_id'))}")
+                            success_count += 1
+                        else:
+                            print(f"✗ Post failed: {result.get('error')}")
+                            error_count += 1
+                    
+                    print(f"\n" + "="*60)
+                    print(f"Posting completed: {success_count} successful, {error_count} failed")
+                    
+                    if error_count > 0:
                         sys.exit(1)
                 else:
                     # Run full test suite if no message provided

@@ -6,7 +6,7 @@
   "ai_model_primary": "Claude 3.5 Sonnet",
   "sync_mode": "Manual-AI-GitHub-Cursor",
   "python_version": "3.13.7",
-  "last_commit": "869f620 - feat(gui): Implement Assets tab with media listing, preview, and selection saving",
+  "last_commit": "98a92d2 - feat(gui): Implement Scheduling tab with add, delete, list functionality",
   "last_run": "2025-10-25T18:07:08",
   "last_exit_code": null,
   "last_log_dir": ""

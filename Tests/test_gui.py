@@ -45,9 +45,19 @@ class TestGUIIntegration(unittest.TestCase):
                 code = f.read()
             
             # Check for required methods
-            required_methods = ['run_post_text', 'run_generate_text', 'SocialBoostApp']
+            required_methods = ['run_post_text', 'run_generate_text', 'run_post_selected_assets', 'SocialBoostApp']
             for method in required_methods:
                 self.assertIn(method, code, f"GUI file should contain {method}")
+    
+    def test_auto_post_has_selected_only_argument(self):
+        """Test that auto_post.py accepts --selected-only argument."""
+        auto_post_file = project_root / "Automatizare_Completa" / "auto_post.py"
+        if auto_post_file.exists():
+            with open(auto_post_file, 'r', encoding='utf-8') as f:
+                code = f.read()
+            
+            self.assertIn('--selected-only', code, "auto_post.py should accept --selected-only argument")
+            self.assertIn('get_assets_to_post', code, "auto_post.py should contain get_assets_to_post function")
     
     def test_auto_post_has_message_argument(self):
         """Test that auto_post.py accepts --message argument."""

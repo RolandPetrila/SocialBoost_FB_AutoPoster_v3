@@ -8,7 +8,7 @@ import os
 import json
 from pathlib import Path
 from unittest.mock import patch, MagicMock
-from Automatizare_Completa.auto_post import FacebookAutoPost
+from Automatizare_Completa.auto_post import FacebookAutoPost, get_assets_to_post
 
 class TestFacebookAutoPost:
     """Test cases for FacebookAutoPost class."""
@@ -658,6 +658,120 @@ class TestFacebookAutoPostIntegration:
                 assert result["post_id"] == "post_123"
                 assert mock_post.call_count == 2
                 mock_sleep.assert_called_once_with(1)  # 2^0 = 1 second wait
+
+
+class TestAssetSelection:
+    """Test cases for asset selection functionality."""
+    
+    def test_get_assets_to_post_selected_only_with_valid_file(self, tmp_path):
+        """Test get_assets_to_post with --selected-only and valid selected_assets.json."""
+        # Create test files
+        test_image = tmp_path / "test_image.jpg"
+        test_video = tmp_path / "test_video.mp4"
+        test_image.write_bytes(b"fake image data")
+        test_video.write_bytes(b"fake video data")
+        
+        # Create selected_assets.json
+        selected_assets_data = {
+            "images": [str(test_image)],
+            "videos": [str(test_video)]
+        }
+        
+        selected_assets_file = tmp_path / "selected_assets.json"
+        with open(selected_assets_file, 'w') as f:
+            json.dump(selected_assets_data, f)
+        
+        # Change to temp directory and test
+        import os
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+            assets = get_assets_to_post(selected_only=True)
+            
+            assert len(assets) == 2
+            assert test_image in assets
+            assert test_video in assets
+        finally:
+            os.chdir(original_cwd)
+    
+    def test_get_assets_to_post_selected_only_with_invalid_paths(self, tmp_path):
+        """Test get_assets_to_post with --selected-only and invalid paths in JSON."""
+        # Create selected_assets.json with invalid paths
+        selected_assets_data = {
+            "images": ["/nonexistent/image.jpg"],
+            "videos": ["/nonexistent/video.mp4"]
+        }
+        
+        selected_assets_file = tmp_path / "selected_assets.json"
+        with open(selected_assets_file, 'w') as f:
+            json.dump(selected_assets_data, f)
+        
+        # Change to temp directory and test
+        import os
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+            assets = get_assets_to_post(selected_only=True)
+            
+            assert len(assets) == 0
+        finally:
+            os.chdir(original_cwd)
+    
+    def test_get_assets_to_post_selected_only_with_empty_json(self, tmp_path):
+        """Test get_assets_to_post with --selected-only and empty JSON."""
+        # Create empty selected_assets.json
+        selected_assets_data = {
+            "images": [],
+            "videos": []
+        }
+        
+        selected_assets_file = tmp_path / "selected_assets.json"
+        with open(selected_assets_file, 'w') as f:
+            json.dump(selected_assets_data, f)
+        
+        # Change to temp directory and test
+        import os
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+            assets = get_assets_to_post(selected_only=True)
+            
+            assert len(assets) == 0
+        finally:
+            os.chdir(original_cwd)
+    
+    def test_get_assets_to_post_selected_only_with_missing_file(self, tmp_path):
+        """Test get_assets_to_post with --selected-only and missing selected_assets.json."""
+        # Change to temp directory without selected_assets.json
+        with patch('pathlib.Path.cwd', return_value=tmp_path):
+            assets = get_assets_to_post(selected_only=True)
+            
+            assert len(assets) == 0
+    
+    def test_get_assets_to_post_selected_only_with_corrupted_json(self, tmp_path):
+        """Test get_assets_to_post with --selected-only and corrupted JSON."""
+        # Create corrupted selected_assets.json
+        selected_assets_file = tmp_path / "selected_assets.json"
+        with open(selected_assets_file, 'w') as f:
+            f.write("invalid json content")
+        
+        # Change to temp directory and test
+        import os
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+            assets = get_assets_to_post(selected_only=True)
+            
+            assert len(assets) == 0
+        finally:
+            os.chdir(original_cwd)
+    
+    def test_get_assets_to_post_automatic_mode(self):
+        """Test get_assets_to_post with automatic mode (not selected-only)."""
+        assets = get_assets_to_post(selected_only=False)
+        
+        # Should return empty list as automatic mode is not implemented yet
+        assert len(assets) == 0
 
 if __name__ == "__main__":
     # Run tests if script is executed directly

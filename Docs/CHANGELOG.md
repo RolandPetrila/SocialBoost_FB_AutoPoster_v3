@@ -5,6 +5,81 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Phase 4 Step 3] - 2025-10-25
+
+### Added
+- **Asset Selection Integration**: Complete integration of asset selection with posting functionality
+  - **--selected-only Flag**: New command line argument for `auto_post.py` to post only selected assets
+  - **Asset Reading Logic**: `get_assets_to_post()` function reads and validates `selected_assets.json`
+  - **Path Validation**: Automatic validation of asset file paths with error logging
+  - **Asset Type Detection**: Automatic detection of image vs video files for appropriate posting method
+  - **Post Selected Assets Button**: New GUI button in Assets tab to trigger posting of selected assets
+  - **Thread-Safe Execution**: Background posting with real-time status updates and error handling
+- **Enhanced GUI Integration**: Seamless workflow from asset selection to posting
+  - **Confirmation Dialog**: User confirmation showing count of images and videos to be posted
+  - **Progress Feedback**: Real-time status updates during posting process
+  - **Error Handling**: Comprehensive error display for posting failures
+  - **Log Integration**: Posting results logged to GUI logs tab
+- **Comprehensive Testing**: Added 6 new unit tests for asset selection functionality
+  - `test_get_assets_to_post_selected_only_with_valid_file` - Valid JSON with existing files
+  - `test_get_assets_to_post_selected_only_with_invalid_paths` - Invalid file paths handling
+  - `test_get_assets_to_post_selected_only_with_empty_json` - Empty selection handling
+  - `test_get_assets_to_post_selected_only_with_missing_file` - Missing JSON file handling
+  - `test_get_assets_to_post_selected_only_with_corrupted_json` - Corrupted JSON handling
+  - `test_get_assets_to_post_automatic_mode` - Automatic mode (placeholder) testing
+- **GUI Test Enhancement**: Added test for new posting functionality
+  - `test_auto_post_has_selected_only_argument` - Verifies --selected-only argument exists
+  - Updated required methods list to include `run_post_selected_assets`
+
+### Technical Details
+- **Asset Processing Pipeline**:
+  - Reads `selected_assets.json` from project root directory
+  - Validates each file path for existence and accessibility
+  - Separates images and videos for appropriate posting methods
+  - Generates descriptive messages for each posted asset
+  - Provides detailed success/failure reporting
+- **Error Handling**:
+  - Graceful handling of missing or corrupted JSON files
+  - Individual file validation with warning logging
+  - Comprehensive error messages for user feedback
+  - Fallback behavior when no valid assets found
+- **GUI Integration**:
+  - Non-blocking execution using threading
+  - Queue-based communication for thread-safe GUI updates
+  - User confirmation before posting with asset counts
+  - Real-time status updates and progress feedback
+- **Command Line Interface**:
+  - New `--selected-only` argument for asset-based posting
+  - Maintains backward compatibility with existing `--message` argument
+  - Automatic asset type detection and appropriate API calls
+  - Detailed console output for posting progress and results
+
+### Testing
+- **74/74 tests passing** (added 6 new asset selection tests + 1 GUI test)
+- **Modified files pass MyPy validation** - No type errors in updated files
+- **5/6 validation checks passing** - Only pre-existing MyPy issues in other files
+- Complete asset selection workflow tested and verified
+- Error handling validated for all failure scenarios
+- Integration testing verified for GUI-backend communication
+
+### Files Modified
+- `Automatizare_Completa/auto_post.py` - Added asset selection functionality (52 lines)
+  - `get_assets_to_post()` - Asset reading and validation logic
+  - `--selected-only` argument parsing
+  - Asset posting loop with type detection
+  - Enhanced main() function with asset posting mode
+- `GUI/main_gui.py` - Added posting integration (74 lines)
+  - `run_post_selected_assets()` - Main posting method with validation
+  - `_run_post_selected_assets_thread()` - Background execution thread
+  - "Post Selected Assets" button in Assets tab
+  - User confirmation and progress feedback
+- `Tests/test_auto_post.py` - Added asset selection tests (94 lines)
+  - `TestAssetSelection` class with 6 comprehensive tests
+  - Tests for all asset selection scenarios and error conditions
+- `Tests/test_gui.py` - Added GUI functionality test (8 lines)
+  - Test for --selected-only argument presence
+  - Updated required methods validation
+
 ## [Phase 4 Step 2] - 2025-10-25
 
 ### Added

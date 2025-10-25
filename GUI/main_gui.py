@@ -287,6 +287,13 @@ class SocialBoostApp(tk.Tk):
         )
         self.save_selection_btn.pack(side='left', padx=5)
         
+        self.post_selected_btn = ttk.Button(
+            buttons_frame,
+            text="Post Selected Assets",
+            command=self.run_post_selected_assets
+        )
+        self.post_selected_btn.pack(side='left', padx=5)
+        
         # Right side - Preview
         right_frame = ttk.LabelFrame(main_container, text="Preview Imagine", padding=10)
         right_frame.pack(side='right', fill='both', expand=True, padx=5)
@@ -622,6 +629,81 @@ class SocialBoostApp(tk.Tk):
         except Exception as e:
             messagebox.showerror("Eroare", f"Eroare la salvarea selecției:\n{str(e)}")
             self.add_log(f"Eroare la salvarea assets: {str(e)}")
+    
+    def run_post_selected_assets(self) -> None:
+        """Run posting of selected assets in a separate thread."""
+        # Check if selected_assets.json exists and has content
+        json_path = self.PROJECT_ROOT / "selected_assets.json"
+        
+        try:
+            if not json_path.exists():
+                messagebox.showwarning("Avertisment", "Nu există fișierul selected_assets.json. Vă rugăm să salvați mai întâi o selecție.")
+                return
+            
+            with open(json_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            images = data.get('images', [])
+            videos = data.get('videos', [])
+            total_assets = len(images) + len(videos)
+            
+            if total_assets == 0:
+                messagebox.showwarning("Avertisment", "Nu există asset-uri selectate în selected_assets.json.")
+                return
+            
+            # Confirm posting
+            confirm_msg = f"Postați {len(images)} imagini și {len(videos)} videoclipuri?"
+            if not messagebox.askyesno("Confirmare", confirm_msg):
+                return
+            
+            # Disable button during execution
+            self.post_selected_btn.config(state='disabled')
+            self.queue.put({'type': 'status', 'text': 'Se postează asset-urile selectate...', 'color': 'blue'})
+            
+            # Run in separate thread
+            thread = threading.Thread(target=self._run_post_selected_assets_thread)
+            thread.daemon = True
+            thread.start()
+            
+        except json.JSONDecodeError:
+            messagebox.showerror("Eroare", "Fișierul selected_assets.json este corupt.")
+        except Exception as e:
+            messagebox.showerror("Eroare", f"Eroare la citirea selected_assets.json:\n{str(e)}")
+    
+    def _run_post_selected_assets_thread(self) -> None:
+        """Thread function for posting selected assets."""
+        try:
+            script_path = self.PROJECT_ROOT / "Automatizare_Completa" / "auto_post.py"
+            
+            if not script_path.exists():
+                self.queue.put({'type': 'error', 'text': f'Scriptul nu a fost găsit: {script_path}'})
+                return
+            
+            # Run the script with --selected-only flag
+            result = subprocess.run(
+                [sys.executable, str(script_path), "--selected-only"],
+                capture_output=True,
+                text=True,
+                cwd=str(self.PROJECT_ROOT)
+            )
+            
+            if result.returncode == 0:
+                self.queue.put({'type': 'success', 'text': 'Asset-urile selectate au fost postate cu succes!'})
+                self.queue.put({'type': 'log', 'text': 'Postare asset-uri selectate completată'})
+                self.queue.put({'type': 'log', 'text': result.stdout})
+            else:
+                error_msg = result.stderr or "Eroare necunoscută la postarea asset-urilor."
+                self.queue.put({'type': 'error', 'text': error_msg})
+                self.queue.put({'type': 'log', 'text': f'Eroare la postarea asset-urilor: {error_msg}'})
+                if result.stdout:
+                    self.queue.put({'type': 'log', 'text': result.stdout})
+                
+        except Exception as e:
+            self.queue.put({'type': 'error', 'text': f'Eroare la executarea scriptului: {str(e)}'})
+            self.queue.put({'type': 'log', 'text': f'Eroare critică: {str(e)}'})
+        finally:
+            self.queue.put({'type': 'status', 'text': 'Ready', 'color': 'green'})
+            self.after(0, lambda: self.post_selected_btn.config(state='normal'))
     
     def on_job_type_change(self, event: Any) -> None:
         """Handle job type selection change to show/hide relevant fields."""
