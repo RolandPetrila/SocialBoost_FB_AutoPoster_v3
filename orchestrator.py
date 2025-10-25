@@ -13,6 +13,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 import argparse
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Setup logging
 LOG_DIR = Path("Logs/RunAll")
