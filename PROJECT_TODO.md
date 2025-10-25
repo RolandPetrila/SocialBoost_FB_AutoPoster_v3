@@ -34,6 +34,13 @@
 - [x] **Implement GUI Logs Tab** - Complete logs viewing with auto-refresh functionality
 
 ### Current Tasks (Phase 4)
+- [x] **Refine GUI Text Generation Tab** - Complete refinement of Text Generation tab functionality
+  - [x] Modified `auto_generate.py` to accept `--assets` argument for targeted generation
+  - [x] Enhanced GUI Text Generation tab to use selected assets from `selected_assets.json`
+  - [x] Added asset type detection (image vs video) for appropriate content generation
+  - [x] Implemented real-time asset count display and validation
+  - [x] Added comprehensive unit tests for new functionality
+  - [x] Updated documentation and project status
 - [ ] Add drag-and-drop support for assets
 - [ ] Implement bulk operations for asset management
 

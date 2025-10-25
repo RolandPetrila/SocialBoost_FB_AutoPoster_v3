@@ -6,8 +6,8 @@
   "ai_model_primary": "Claude 3.5 Sonnet",
   "sync_mode": "Manual-AI-GitHub-Cursor",
   "python_version": "3.13.7",
-  "last_commit": "fb021d5 - feat(autopost): Implement automatic media rotation based on tracking file",
-  "last_run": "2025-10-25T21:12:00",
+  "last_commit": "5938b43 - feat(gui): Implement Logs tab with auto-refreshing content",
+  "last_run": "2025-10-25T22:01:00",
   "last_exit_code": null,
   "last_log_dir": ""
 }

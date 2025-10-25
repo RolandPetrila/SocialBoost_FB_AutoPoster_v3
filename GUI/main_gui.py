@@ -324,6 +324,10 @@ class SocialBoostApp(tk.Tk):
         self.prompt_text = scrolledtext.ScrolledText(input_frame, height=6, wrap=tk.WORD)
         self.prompt_text.pack(fill='both', expand=True, pady=5)
         
+        # Selected assets info label
+        self.assets_info_label = ttk.Label(input_frame, text="Va genera text pentru 0 imagini și 0 video-uri selectate.", foreground='gray')
+        self.assets_info_label.pack(anchor='w', pady=(0, 5))
+        
         # Generate button
         self.generate_btn = ttk.Button(
             input_frame, 
@@ -339,6 +343,38 @@ class SocialBoostApp(tk.Tk):
         # Result display
         self.result_text = scrolledtext.ScrolledText(output_frame, height=8, wrap=tk.WORD, state='disabled')
         self.result_text.pack(fill='both', expand=True)
+        
+        # Update assets info on initialization
+        self.update_assets_info()
+        
+    def update_assets_info(self) -> None:
+        """Update the assets info label with current selection."""
+        try:
+            selected_assets_path = self.PROJECT_ROOT / "selected_assets.json"
+            if selected_assets_path.exists():
+                with open(selected_assets_path, 'r', encoding='utf-8') as f:
+                    selected_data = json.load(f)
+                    images = selected_data.get('images', [])
+                    videos = selected_data.get('videos', [])
+                    
+                    # Count image and video files
+                    image_count = len(images)
+                    video_count = len(videos)
+                    
+                    self.assets_info_label.config(
+                        text=f"Va genera text pentru {image_count} imagini și {video_count} video-uri selectate.",
+                        foreground='blue' if (image_count + video_count) > 0 else 'gray'
+                    )
+            else:
+                self.assets_info_label.config(
+                    text="Va genera text pentru 0 imagini și 0 video-uri selectate.",
+                    foreground='gray'
+                )
+        except Exception:
+            self.assets_info_label.config(
+                text="Eroare la citirea selecției de asset-uri.",
+                foreground='red'
+            )
         
     def setup_logs_tab(self) -> None:
         """Setup the Logs tab."""
@@ -495,17 +531,38 @@ class SocialBoostApp(tk.Tk):
         if not prompt:
             messagebox.showwarning("Avertisment", "Vă rugăm să introduceți un prompt.")
             return
+        
+        # Read selected assets from selected_assets.json
+        selected_assets_path = self.PROJECT_ROOT / "selected_assets.json"
+        selected_paths = []
+        
+        try:
+            if selected_assets_path.exists():
+                with open(selected_assets_path, 'r', encoding='utf-8') as f:
+                    selected_data = json.load(f)
+                    # Combine images and videos lists
+                    images = selected_data.get('images', [])
+                    videos = selected_data.get('videos', [])
+                    selected_paths = images + videos
+        except Exception as e:
+            self.queue.put({'type': 'error', 'text': f'Eroare la citirea selected_assets.json: {str(e)}'})
+            return
+        
+        # Check if any assets are selected
+        if not selected_paths:
+            messagebox.showwarning("Avertisment", "Niciun asset selectat în tab-ul Assets!")
+            return
             
         # Disable button during execution
         self.generate_btn.config(state='disabled')
-        self.queue.put({'type': 'status', 'text': 'Se generează text...', 'color': 'blue'})
+        self.queue.put({'type': 'status', 'text': f'Se generează text pentru {len(selected_paths)} asset-uri...', 'color': 'blue'})
         
         # Run in separate thread
-        thread = threading.Thread(target=self._run_generate_text_thread, args=(prompt,))
+        thread = threading.Thread(target=self._run_generate_text_thread, args=(prompt, selected_paths))
         thread.daemon = True
         thread.start()
         
-    def _run_generate_text_thread(self, prompt: str) -> None:
+    def _run_generate_text_thread(self, prompt: str, selected_paths: List[str]) -> None:
         """Thread function for running text generation."""
         try:
             script_path = self.PROJECT_ROOT / "Automatizare_Completa" / "auto_generate.py"
@@ -513,10 +570,13 @@ class SocialBoostApp(tk.Tk):
             if not script_path.exists():
                 self.queue.put({'type': 'error', 'text': f'Scriptul nu a fost găsit: {script_path}'})
                 return
-                
+            
+            # Build command arguments
+            args = [sys.executable, str(script_path), "--prompt", prompt, "--assets"] + selected_paths
+            
             # Run the script
             result = subprocess.run(
-                [sys.executable, str(script_path), "--prompt", prompt],
+                args,
                 capture_output=True,
                 text=True,
                 cwd=str(self.PROJECT_ROOT)
@@ -524,8 +584,8 @@ class SocialBoostApp(tk.Tk):
             
             if result.returncode == 0:
                 self.queue.put({'type': 'result', 'text': result.stdout})
-                self.queue.put({'type': 'success', 'text': 'Textul a fost generat cu succes!'})
-                self.queue.put({'type': 'log', 'text': f'Generare text completată pentru prompt: {prompt[:50]}...'})
+                self.queue.put({'type': 'success', 'text': f'Textul a fost generat cu succes pentru {len(selected_paths)} asset-uri!'})
+                self.queue.put({'type': 'log', 'text': f'Generare text completată pentru {len(selected_paths)} asset-uri cu prompt: {prompt[:50]}...'})
             else:
                 error_msg = result.stderr or "Eroare necunoscută la generarea textului."
                 self.queue.put({'type': 'error', 'text': error_msg})

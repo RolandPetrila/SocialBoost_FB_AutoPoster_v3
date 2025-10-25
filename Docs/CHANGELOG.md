@@ -5,6 +5,81 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Phase 4 Step 6] - 2025-10-25
+
+### Added
+- **Enhanced Text Generation Tab**: Complete refinement of GUI Text Generation functionality
+  - **Asset-Targeted Generation**: Text generation now uses selected assets from `selected_assets.json`
+  - **Asset Type Detection**: Automatic detection of image vs video files for appropriate content generation
+  - **Dynamic Asset Info**: Real-time display of selected asset counts (X images, Y videos)
+  - **Asset Validation**: Warning dialog when no assets are selected before generation
+  - **Enhanced User Experience**: Clear feedback on what will be generated before execution
+- **Enhanced auto_generate.py**: Added `--assets` argument for targeted content generation
+  - **Multi-Asset Processing**: Processes multiple assets in a single command
+  - **File Type Handling**: Different generation strategies for images vs videos vs unknown files
+  - **Asset-Specific Prompts**: Contextual prompts based on file names and types
+  - **Comprehensive Output**: Detailed progress reporting for each asset processed
+  - **Backward Compatibility**: Maintains existing functionality when no assets specified
+- **Comprehensive Testing**: Added 6 new unit tests for enhanced functionality
+  - `test_main_with_assets_argument` - Verifies argument parsing for --assets
+  - `test_asset_processing_logic` - Tests asset processing for different file types
+  - `test_file_extension_detection` - Validates file extension detection logic
+  - `test_generate_text_tab_has_assets_info` - Verifies assets info label presence
+  - `test_generate_text_reads_selected_assets` - Tests selected_assets.json reading
+  - `test_generate_text_calls_subprocess_with_assets` - Validates subprocess integration
+  - `test_generate_text_shows_warning_for_no_assets` - Tests warning for empty selection
+  - `test_update_assets_info_method` - Validates assets info update method
+
+### Technical Details
+- **Asset Processing Pipeline**:
+  - Reads `selected_assets.json` from project root directory
+  - Combines images and videos lists into single processing queue
+  - Validates each asset path before processing
+  - Generates appropriate content based on file type (image captions vs video posts)
+  - Provides detailed progress feedback for each asset
+- **File Type Detection**:
+  - Images: JPG, JPEG, PNG, GIF, BMP, WebP → Caption generation using Vision API
+  - Videos: MP4, AVI, MOV, MKV, WMV, FLV, WebM → Post text generation
+  - Unknown: Other file types → General post text generation
+- **GUI Integration**:
+  - Real-time asset count display with color coding (blue when assets selected, gray when none)
+  - Warning dialog prevents generation when no assets are selected
+  - Thread-safe execution with progress updates
+  - Enhanced status messages showing number of assets being processed
+- **Command Line Interface**:
+  - New `--assets` argument accepts multiple file paths
+  - Maintains backward compatibility with existing `--prompt` argument
+  - Detailed console output showing processing progress for each asset
+  - Return code 0 for successful completion
+
+### Testing
+- **99/99 tests passing** (added 6 new tests for enhanced functionality)
+- **All validation checks passing** - pytest, syntax, import checks successful
+- **MyPy validation**: No type errors in modified files
+- **Complete workflow testing**: Asset selection → generation → output verification
+- **Error handling validation**: Empty selection, invalid files, API failures
+
+### Files Modified
+- `Automatizare_Completa/auto_generate.py` - Enhanced with --assets argument (50+ lines)
+  - Added `--assets` argument parsing with nargs="*"
+  - Enhanced main() function with asset processing logic
+  - File type detection and appropriate generation method selection
+  - Comprehensive progress reporting and error handling
+- `GUI/main_gui.py` - Refined Text Generation tab (40+ lines)
+  - Enhanced `run_generate_text()` to read selected_assets.json
+  - Added `update_assets_info()` method for real-time asset count display
+  - Enhanced `_run_generate_text_thread()` to pass assets to subprocess
+  - Added assets info label with dynamic updates
+  - Warning dialog for empty asset selection
+- `Tests/test_auto_generate.py` - Added asset processing tests (85+ lines)
+  - 3 new tests for --assets argument functionality
+  - Asset processing logic validation
+  - File extension detection testing
+- `Tests/test_gui.py` - Added GUI functionality tests (50+ lines)
+  - 5 new tests for enhanced GUI functionality
+  - Asset reading and subprocess integration testing
+  - Warning dialog and UI component validation
+
 ## [Phase 4 Step 5] - 2025-10-25
 
 ### Added

@@ -290,6 +290,7 @@ def main():
     """Main entry point for content generation testing and GUI integration."""
     parser = argparse.ArgumentParser(description="OpenAI Content Generation Module")
     parser.add_argument("--prompt", type=str, help="Prompt for text generation")
+    parser.add_argument("--assets", nargs="*", help="List of asset paths for targeted generation")
     args = parser.parse_args()
     
     try:
@@ -308,8 +309,59 @@ def main():
             print("✗ OpenAI API check failed")
             return
         
-        # If prompt is provided via command line, generate text
-        if args.prompt:
+        # If assets are provided via command line, generate content for each asset
+        if args.assets:
+            print("\n" + "="*60)
+            print("Generating content for selected assets...")
+            print(f"Number of assets: {len(args.assets)}")
+            
+            generated_content = {}
+            user_prompt = args.prompt or "Generate engaging social media content"
+            
+            for i, asset_path in enumerate(args.assets, 1):
+                asset_path_obj = Path(asset_path)
+                print(f"\n{i}. Processing asset: {asset_path_obj.name}")
+                
+                # Determine if it's an image or video based on extension
+                image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
+                video_extensions = {'.mp4', '.avi', '.mov', '.mkv', '.wmv', '.flv', '.webm'}
+                
+                if asset_path_obj.suffix.lower() in image_extensions:
+                    print(f"   Type: Image")
+                    print(f"   Generating caption...")
+                    generated_text = generator.generate_caption_for_image(asset_path_obj, user_prompt)
+                    generated_content[asset_path] = {
+                        'type': 'image',
+                        'content': generated_text
+                    }
+                elif asset_path_obj.suffix.lower() in video_extensions:
+                    print(f"   Type: Video")
+                    print(f"   Generating post text...")
+                    video_prompt = f"{user_prompt} related to video file {asset_path_obj.name}"
+                    generated_text = generator.generate_post_text(video_prompt)
+                    generated_content[asset_path] = {
+                        'type': 'video',
+                        'content': generated_text
+                    }
+                else:
+                    print(f"   Type: Unknown (extension: {asset_path_obj.suffix})")
+                    print(f"   Generating general post text...")
+                    general_prompt = f"{user_prompt} related to file {asset_path_obj.name}"
+                    generated_text = generator.generate_post_text(general_prompt)
+                    generated_content[asset_path] = {
+                        'type': 'unknown',
+                        'content': generated_text
+                    }
+                
+                print(f"   Generated content ({len(generated_text)} characters):")
+                print(f"   {generated_text[:100]}{'...' if len(generated_text) > 100 else ''}")
+            
+            print(f"\n✓ Generated content for {len(args.assets)} assets successfully!")
+            print("="*60)
+            return 0
+        
+        # If prompt is provided via command line (without assets), generate text
+        elif args.prompt:
             print("\n" + "="*60)
             print("Generating text from command line prompt...")
             print(f"Prompt: {args.prompt}")

@@ -5,7 +5,7 @@ Minimal tests for the SocialBoost GUI application
 """
 
 import unittest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch, MagicMock, mock_open
 import sys
 import os
 import json
@@ -221,6 +221,64 @@ class TestGUIIntegration(unittest.TestCase):
         self.assertIn('state=\'disabled\'', code, "Logs text widget should be disabled")
         self.assertIn('logs_text', code, "Logs tab should have logs_text widget")
         self.assertIn('ttk.Scrollbar', code, "Logs tab should have scrollbar")
+    
+    def test_generate_text_tab_has_assets_info(self):
+        """Test that the generate text tab has assets info label."""
+        gui_file = project_root / "GUI" / "main_gui.py"
+        with open(gui_file, 'r', encoding='utf-8') as f:
+            code = f.read()
+        
+        # Check that the generate text tab has assets info
+        self.assertIn('assets_info_label', code, "Generate text tab should have assets_info_label")
+        self.assertIn('Va genera text pentru', code, "Assets info should show generation info")
+        self.assertIn('imagini și', code, "Assets info should mention images")
+        self.assertIn('video-uri selectate', code, "Assets info should mention videos")
+    
+    def test_generate_text_reads_selected_assets(self):
+        """Test that generate text functionality reads selected_assets.json."""
+        gui_file = project_root / "GUI" / "main_gui.py"
+        with open(gui_file, 'r', encoding='utf-8') as f:
+            code = f.read()
+        
+        # Check that run_generate_text reads selected_assets.json
+        self.assertIn('selected_assets.json', code, "run_generate_text should read selected_assets.json")
+        self.assertIn('json.load', code, "Should use json.load to parse selected assets")
+        self.assertIn('images', code, "Should read images from selected assets")
+        self.assertIn('videos', code, "Should read videos from selected assets")
+    
+    def test_generate_text_calls_subprocess_with_assets(self):
+        """Test that generate text calls subprocess with --assets argument."""
+        gui_file = project_root / "GUI" / "main_gui.py"
+        with open(gui_file, 'r', encoding='utf-8') as f:
+            code = f.read()
+        
+        # Check that subprocess is called with --assets argument
+        self.assertIn('--assets', code, "Should pass --assets argument to subprocess")
+        self.assertIn('subprocess.run', code, "Should use subprocess.run")
+        self.assertIn('auto_generate.py', code, "Should call auto_generate.py script")
+    
+    def test_generate_text_shows_warning_for_no_assets(self):
+        """Test that generate text shows warning when no assets are selected."""
+        gui_file = project_root / "GUI" / "main_gui.py"
+        with open(gui_file, 'r', encoding='utf-8') as f:
+            code = f.read()
+        
+        # Check that warning is shown for empty selection
+        self.assertIn('Niciun asset selectat', code, "Should show warning for no assets")
+        self.assertIn('messagebox.showwarning', code, "Should use messagebox for warning")
+    
+    def test_update_assets_info_method(self):
+        """Test the update_assets_info method functionality."""
+        # This test verifies the method exists and handles the data structure
+        gui_file = project_root / "GUI" / "main_gui.py"
+        with open(gui_file, 'r', encoding='utf-8') as f:
+            code = f.read()
+        
+        # Check that update_assets_info method exists
+        self.assertIn('def update_assets_info', code, "Should have update_assets_info method")
+        self.assertIn('selected_assets_path', code, "Should use selected_assets_path")
+        self.assertIn('image_count', code, "Should count images")
+        self.assertIn('video_count', code, "Should count videos")
 
 
 if __name__ == '__main__':
