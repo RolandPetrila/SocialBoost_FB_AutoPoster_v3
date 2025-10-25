@@ -67,7 +67,7 @@ class Orchestrator:
         self.context['last_log_dir'] = str(LOG_DIR)
         self.save_context()
         
-    def run_script(self, script_path: Path, args: List[str] = None) -> int:
+    def run_script(self, script_path: Path, args: Optional[List[str]] = None) -> int:
         """Run a Python script with optional arguments."""
         if not script_path.exists():
             self.logger.error(f"Script not found: {script_path}")

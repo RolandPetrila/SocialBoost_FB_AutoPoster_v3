@@ -9,16 +9,16 @@ import sys
 import json
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Tuple, Any, Optional, Collection
 import ast
 import re
 
 class ContextValidator:
     """Validates project context and configuration."""
     
-    def __init__(self, root_path: Path = None):
+    def __init__(self, root_path: Optional[Path] = None):
         self.root_path = root_path or Path.cwd()
-        self.validation_results = {
+        self.validation_results: Dict[str, Any] = {
             "timestamp": "",
             "passed": [],
             "failed": [],
@@ -339,7 +339,7 @@ class ContextValidator:
         
         return True, "Context management system present"
     
-    def export_report(self, output_path: Path = None) -> Path:
+    def export_report(self, output_path: Optional[Path] = None) -> Path:
         """Export validation report."""
         if not output_path:
             output_path = Path("validation_report.md")

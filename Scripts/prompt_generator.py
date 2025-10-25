@@ -16,7 +16,7 @@ import re
 class PromptGenerator:
     """Generates structured prompts for AI assistants."""
     
-    def __init__(self, templates_dir: Path = None):
+    def __init__(self, templates_dir: Optional[Path] = None):
         self.templates_dir = templates_dir or Path("Prompts/Templates")
         self.prompts_dir = Path("Prompts/Generated")
         self.prompts_dir.mkdir(parents=True, exist_ok=True)
@@ -212,7 +212,7 @@ class PromptGenerator:
         self,
         template_name: str,
         task_description: str,
-        variables: Dict[str, str] = None,
+        variables: Optional[Dict[str, str]] = None,
         include_context: bool = True
     ) -> str:
         """Generate a prompt from template and variables."""
@@ -254,7 +254,7 @@ class PromptGenerator:
         
         return prompt
     
-    def save_prompt(self, prompt: str, filename: str = None) -> Path:
+    def save_prompt(self, prompt: str, filename: Optional[str] = None) -> Path:
         """Save generated prompt to file."""
         if not filename:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -277,8 +277,8 @@ class PromptGenerator:
     def generate_implementation_prompt(
         self,
         task: str,
-        files: List[str] = None,
-        requirements: List[str] = None
+        files: Optional[List[str]] = None,
+        requirements: Optional[List[str]] = None
     ) -> str:
         """Generate implementation-specific prompt."""
         
@@ -295,7 +295,7 @@ class PromptGenerator:
         self,
         issue: str,
         error_details: str = "",
-        files: List[str] = None
+        files: Optional[List[str]] = None
     ) -> str:
         """Generate debug-specific prompt."""
         
@@ -313,7 +313,7 @@ class PromptGenerator:
     def generate_validation_prompt(
         self,
         scope: str = "full",
-        tests: List[str] = None
+        tests: Optional[List[str]] = None
     ) -> str:
         """Generate validation-specific prompt."""
         
