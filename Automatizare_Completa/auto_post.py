@@ -15,9 +15,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 from dotenv import load_dotenv
+import glob
 
 # Load environment variables
 load_dotenv()
+
+# Define project root
+PROJECT_ROOT = Path(__file__).parent.parent
+ASSET_TRACKING_FILE = PROJECT_ROOT / "Config" / "asset_tracking.json"
 
 # Get secrets from environment
 FACEBOOK_PAGE_TOKEN = os.getenv("FACEBOOK_PAGE_TOKEN")
@@ -495,12 +500,127 @@ class FacebookAutoPost:
         logger.info("Checking token validity...")
         return bool(self.page_token)
 
+def load_asset_tracking() -> dict:
+    """Load asset tracking data from JSON file."""
+    try:
+        if not ASSET_TRACKING_FILE.exists():
+            logger.info("Asset tracking file not found, creating empty tracking data")
+            return {}
+        
+        with open(ASSET_TRACKING_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        logger.warning("Asset tracking file not found, returning empty tracking data")
+        return {}
+    except json.JSONDecodeError as e:
+        logger.warning(f"Error parsing asset tracking file: {e}, returning empty tracking data")
+        return {}
+    except Exception as e:
+        logger.error(f"Unexpected error loading asset tracking: {e}")
+        return {}
+
+def save_asset_tracking(tracking_data: dict) -> None:
+    """Save asset tracking data to JSON file."""
+    try:
+        # Ensure Config directory exists
+        ASSET_TRACKING_FILE.parent.mkdir(parents=True, exist_ok=True)
+        
+        with open(ASSET_TRACKING_FILE, 'w', encoding='utf-8') as f:
+            json.dump(tracking_data, f, indent=2, ensure_ascii=False)
+        logger.debug(f"Asset tracking data saved to {ASSET_TRACKING_FILE}")
+    except Exception as e:
+        logger.error(f"Error saving asset tracking data: {e}")
+
 def get_assets_to_post(selected_only: bool) -> List[Path]:
     """Get list of assets to post based on selection mode."""
     if not selected_only:
-        # TODO: Implement rotation/automatic selection from Assets/ folders
-        logger.info("Using automatic asset selection (not yet implemented)")
-        return []
+        # Implement rotation/automatic selection from Assets/ folders
+        logger.info("Using automatic asset selection with rotation logic")
+        
+        # Define valid media extensions
+        image_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'}
+        video_extensions = {'.mp4', '.mov', '.avi', '.mkv', '.webm', '.wmv', '.flv'}
+        valid_extensions = image_extensions | video_extensions
+        
+        # Scan Assets/Images and Assets/Videos folders
+        assets_found: List[Path] = []
+        
+        # Scan Images folder
+        images_folder = PROJECT_ROOT / "Assets" / "Images"
+        if images_folder.exists():
+            for ext in image_extensions:
+                pattern = str(images_folder / f"*{ext}")
+                assets_found.extend([Path(f) for f in glob.glob(pattern)])
+        
+        # Scan Videos folder
+        videos_folder = PROJECT_ROOT / "Assets" / "Videos"
+        if videos_folder.exists():
+            for ext in video_extensions:
+                pattern = str(videos_folder / f"*{ext}")
+                assets_found.extend([Path(f) for f in glob.glob(pattern)])
+        
+        if not assets_found:
+            logger.warning("No media assets found in Assets/ folders")
+            return []
+        
+        logger.info(f"Found {len(assets_found)} media assets")
+        
+        # Load tracking data
+        tracking_data = load_asset_tracking()
+        
+        # Find the asset with the oldest last_posted timestamp
+        oldest_asset = None
+        oldest_timestamp = None
+        unposted_assets = []
+        
+        for asset_path in assets_found:
+            # Get relative path for tracking
+            try:
+                relative_path = asset_path.relative_to(PROJECT_ROOT)
+                relative_path_str = str(relative_path)
+            except ValueError:
+                # Asset is not under project root, skip it
+                logger.warning(f"Asset {asset_path} is not under project root, skipping")
+                continue
+            
+            # Check if asset has been posted before
+            if relative_path_str not in tracking_data:
+                unposted_assets.append(asset_path)
+                continue
+            
+            asset_info = tracking_data[relative_path_str]
+            last_posted = asset_info.get('last_posted')
+            
+            # Consider asset unposted if no timestamp or very old timestamp
+            if not last_posted or last_posted == "1970-01-01T00:00:00":
+                unposted_assets.append(asset_path)
+                continue
+            
+            # Parse timestamp and find oldest
+            try:
+                timestamp = datetime.fromisoformat(last_posted)
+                if oldest_timestamp is None or timestamp < oldest_timestamp:
+                    oldest_timestamp = timestamp
+                    oldest_asset = asset_path
+            except ValueError:
+                logger.warning(f"Invalid timestamp for {relative_path_str}: {last_posted}")
+                unposted_assets.append(asset_path)
+        
+        # Select asset to post
+        if unposted_assets:
+            # Post first unposted asset
+            selected_asset = unposted_assets[0]
+            logger.info(f"Selected unposted asset: {selected_asset}")
+        elif oldest_asset:
+            # Post oldest asset (repost)
+            selected_asset = oldest_asset
+            logger.info(f"Selected oldest asset for repost: {selected_asset}")
+        else:
+            # Fallback: select first asset
+            selected_asset = assets_found[0]
+            logger.info(f"Fallback: selected first asset: {selected_asset}")
+        
+        return [selected_asset]
     
     # Read selected_assets.json
     selected_assets_path = Path("selected_assets.json")
@@ -628,6 +748,19 @@ def main():
                         if result["status"] == "success":
                             print(f"✓ Posted successfully! ID: {result.get('post_id', result.get('video_id'))}")
                             success_count += 1
+                            
+                            # Update asset tracking for successful posts
+                            if not args.selected_only:
+                                try:
+                                    tracking_data = load_asset_tracking()
+                                    relative_path = asset_path.relative_to(PROJECT_ROOT)
+                                    tracking_data[str(relative_path)] = {
+                                        "last_posted": datetime.now().isoformat()
+                                    }
+                                    save_asset_tracking(tracking_data)
+                                    logger.info(f"Updated tracking for {relative_path}")
+                                except Exception as e:
+                                    logger.error(f"Failed to update asset tracking: {e}")
                         else:
                             print(f"✗ Post failed: {result.get('error')}")
                             error_count += 1

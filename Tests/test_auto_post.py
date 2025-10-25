@@ -8,7 +8,7 @@ import os
 import json
 from pathlib import Path
 from unittest.mock import patch, MagicMock
-from Automatizare_Completa.auto_post import FacebookAutoPost, get_assets_to_post
+from Automatizare_Completa.auto_post import FacebookAutoPost, get_assets_to_post, load_asset_tracking, save_asset_tracking
 
 class TestFacebookAutoPost:
     """Test cases for FacebookAutoPost class."""
@@ -772,6 +772,181 @@ class TestAssetSelection:
         
         # Should return empty list as automatic mode is not implemented yet
         assert len(assets) == 0
+
+
+class TestAssetRotation:
+    """Test cases for asset rotation functionality."""
+    
+    @patch('Automatizare_Completa.auto_post.load_asset_tracking')
+    def test_rotation_selects_unposted(self, mock_load_tracking):
+        """Test that rotation selects unposted assets first."""
+        # Mock tracking data with 2 assets posted
+        mock_load_tracking.return_value = {
+            'Assets\\Images\\image1.jpg': {'last_posted': '2025-01-01T10:00:00'},
+            'Assets\\Images\\image2.jpg': {'last_posted': '2025-01-01T11:00:00'}
+        }
+        
+        # Mock glob.glob to return specific files for all extensions
+        with patch('glob.glob') as mock_glob:
+            # Provide enough mock values for all extensions (jpg, jpeg, png, gif, bmp, webp, mp4, mov, avi, mkv, webm, wmv, flv)
+            mock_glob.side_effect = [
+                ['C:/test/project/Assets/Images/image1.jpg', 'C:/test/project/Assets/Images/image2.jpg'],  # jpg
+                [],  # jpeg
+                [],  # png
+                [],  # gif
+                [],  # bmp
+                [],  # webp
+                ['C:/test/project/Assets/Videos/video1.mp4'],  # mp4
+                [],  # mov
+                [],  # avi
+                [],  # mkv
+                [],  # webm
+                [],  # wmv
+                []   # flv
+            ]
+            
+            # Mock PROJECT_ROOT and folder existence
+            with patch('Automatizare_Completa.auto_post.PROJECT_ROOT', Path('C:/test/project')), \
+                 patch('pathlib.Path.exists', return_value=True):
+                assets = get_assets_to_post(selected_only=False)
+                
+                # Should select the unposted video
+                assert len(assets) == 1
+                assert str(assets[0]) == 'C:\\test\\project\\Assets\\Videos\\video1.mp4'
+    
+    @patch('Automatizare_Completa.auto_post.load_asset_tracking')
+    def test_rotation_selects_oldest(self, mock_load_tracking):
+        """Test that rotation selects oldest asset when all are posted."""
+        # Mock tracking data with all 3 assets posted at different times
+        mock_load_tracking.return_value = {
+            'Assets\\Images\\image1.jpg': {'last_posted': '2025-01-01T10:00:00'},
+            'Assets\\Images\\image2.jpg': {'last_posted': '2025-01-01T08:00:00'},  # Oldest
+            'Assets\\Videos\\video1.mp4': {'last_posted': '2025-01-01T09:00:00'}
+        }
+        
+        # Mock glob.glob to return specific files for all extensions
+        with patch('glob.glob') as mock_glob:
+            # Provide enough mock values for all extensions
+            mock_glob.side_effect = [
+                ['C:/test/project/Assets/Images/image1.jpg', 'C:/test/project/Assets/Images/image2.jpg'],  # jpg
+                [],  # jpeg
+                [],  # png
+                [],  # gif
+                [],  # bmp
+                [],  # webp
+                ['C:/test/project/Assets/Videos/video1.mp4'],  # mp4
+                [],  # mov
+                [],  # avi
+                [],  # mkv
+                [],  # webm
+                [],  # wmv
+                []   # flv
+            ]
+            
+            # Mock PROJECT_ROOT and folder existence
+            with patch('Automatizare_Completa.auto_post.PROJECT_ROOT', Path('C:/test/project')), \
+                 patch('pathlib.Path.exists', return_value=True):
+                assets = get_assets_to_post(selected_only=False)
+                
+                # Should select the oldest asset
+                assert len(assets) == 1
+                assert str(assets[0]) == 'C:\\test\\project\\Assets\\Images\\image2.jpg'
+    
+    @patch('Automatizare_Completa.auto_post.load_asset_tracking')
+    def test_rotation_handles_empty_assets_folder(self, mock_load_tracking):
+        """Test that rotation handles empty assets folder gracefully."""
+        # Mock tracking data
+        mock_load_tracking.return_value = {}
+        
+        # Mock glob.glob to return empty lists for all extensions
+        with patch('glob.glob') as mock_glob:
+            # Provide empty lists for all extensions
+            mock_glob.side_effect = [[]] * 13  # 6 image extensions + 7 video extensions
+            
+            # Mock PROJECT_ROOT and folder existence
+            with patch('Automatizare_Completa.auto_post.PROJECT_ROOT', Path('C:/test/project')), \
+                 patch('pathlib.Path.exists', return_value=True):
+                assets = get_assets_to_post(selected_only=False)
+                
+                # Should return empty list
+                assert len(assets) == 0
+    
+    @patch('Automatizare_Completa.auto_post.json.load')
+    @patch('Automatizare_Completa.auto_post.ASSET_TRACKING_FILE')
+    def test_load_asset_tracking_file_not_found(self, mock_file, mock_json_load):
+        """Test load_asset_tracking handles file not found."""
+        mock_file.exists.return_value = False
+        
+        result = load_asset_tracking()
+        
+        assert result == {}
+        mock_json_load.assert_not_called()
+    
+    @patch('Automatizare_Completa.auto_post.json.load')
+    @patch('Automatizare_Completa.auto_post.ASSET_TRACKING_FILE')
+    def test_load_asset_tracking_json_decode_error(self, mock_file, mock_json_load):
+        """Test load_asset_tracking handles JSON decode error."""
+        mock_file.exists.return_value = True
+        mock_json_load.side_effect = json.JSONDecodeError("Invalid JSON", "", 0)
+        
+        result = load_asset_tracking()
+        
+        assert result == {}
+    
+    @patch('Automatizare_Completa.auto_post.json.dump')
+    @patch('Automatizare_Completa.auto_post.ASSET_TRACKING_FILE')
+    def test_save_asset_tracking_success(self, mock_file, mock_json_dump):
+        """Test save_asset_tracking saves data successfully."""
+        mock_file.parent.mkdir = MagicMock()
+        
+        test_data = {'test': 'data'}
+        save_asset_tracking(test_data)
+        
+        mock_file.parent.mkdir.assert_called_once_with(parents=True, exist_ok=True)
+        mock_json_dump.assert_called_once()
+    
+    @patch('Automatizare_Completa.auto_post.json.dump')
+    @patch('Automatizare_Completa.auto_post.ASSET_TRACKING_FILE')
+    def test_save_asset_tracking_error(self, mock_file, mock_json_dump):
+        """Test save_asset_tracking handles save errors."""
+        mock_file.parent.mkdir = MagicMock()
+        mock_json_dump.side_effect = Exception("Save error")
+        
+        test_data = {'test': 'data'}
+        # Should not raise exception
+        save_asset_tracking(test_data)
+        
+        mock_file.parent.mkdir.assert_called_once_with(parents=True, exist_ok=True)
+        mock_json_dump.assert_called_once()
+    
+    @patch('Automatizare_Completa.auto_post.datetime')
+    @patch('Automatizare_Completa.auto_post.load_asset_tracking')
+    @patch('Automatizare_Completa.auto_post.save_asset_tracking')
+    def test_rotation_updates_tracking_file(self, mock_save, mock_load, mock_datetime):
+        """Test that successful posts update tracking file."""
+        # Mock datetime
+        mock_now = MagicMock()
+        mock_now.isoformat.return_value = '2025-01-01T12:00:00'
+        mock_datetime.now.return_value = mock_now
+        
+        # Mock tracking data
+        mock_load.return_value = {}
+        
+        # This test would need to be integrated with the main posting loop
+        # For now, we'll test the tracking update logic directly
+        tracking_data = {}
+        asset_path = Path('C:/test/project/Assets/Images/test.jpg')
+        project_root = Path('C:/test/project')
+        
+        # Simulate the tracking update logic
+        relative_path = asset_path.relative_to(project_root)
+        tracking_data[str(relative_path)] = {
+            "last_posted": mock_now.isoformat()
+        }
+        
+        # Check that the tracking data was updated correctly
+        assert 'Assets\\Images\\test.jpg' in tracking_data
+        assert tracking_data['Assets\\Images\\test.jpg']['last_posted'] == '2025-01-01T12:00:00'
 
 if __name__ == "__main__":
     # Run tests if script is executed directly

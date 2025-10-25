@@ -28,6 +28,7 @@
 - [x] **Implement GUI Assets Tab** - Complete functionality for listing, previewing, and saving media assets
 - [x] **Implement GUI Scheduling Tab** - Full scheduling interface with add, delete, list functionality
 - [x] **Integrate asset selection with posting functionality** - Complete integration of selected_assets.json with auto_post.py
+- [x] **Implement automatic media rotation logic** - Complete asset rotation system with tracking and intelligent selection
 
 ### Current Tasks (Phase 4)
 - [ ] Add drag-and-drop support for assets
