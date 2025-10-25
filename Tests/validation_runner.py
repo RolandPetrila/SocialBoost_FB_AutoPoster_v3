@@ -112,6 +112,10 @@ class ValidationRunner:
             self.results["summary"]["overall_status"] = "FAILED"
         
         logger.info(f"Validation completed: {self.results['summary']['overall_status']}")
+        
+        # Save results at the end after all validations are complete
+        self.save_results()
+        
         return self.results
     
     def run_syntax_check(self) -> Tuple[bool, str, List[str]]:
@@ -217,9 +221,16 @@ class ValidationRunner:
         logger.info("Running mypy...")
         
         try:
+            # Check if mypy can be imported/run
+            import mypy
+            logger.debug("MyPy imported successfully")
+        except ImportError:
+            return False, "MyPy not found or failed to run", []
+        
+        try:
             # Run mypy with ignore missing imports
             result = subprocess.run(
-                [sys.executable, "-m", "mypy", ".", "--ignore-missing-imports", "--no-error-summary"],
+                [sys.executable, "-m", "mypy", ".", "--ignore-missing-imports", "--no-error-summary", "--explicit-package-bases"],
                 capture_output=True,
                 text=True,
                 cwd=self.project_root,

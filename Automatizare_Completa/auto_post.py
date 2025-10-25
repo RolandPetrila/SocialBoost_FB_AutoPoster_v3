@@ -128,9 +128,111 @@ class FacebookAutoPost:
     
     def post_image(self, message: str, image_path: Path) -> Dict[str, Any]:
         """Post image with text to Facebook page."""
-        # TODO: Implement Facebook Graph API call for image posting
         logger.info(f"Posting image: {image_path} with message: {message[:50]}...")
-        return {"status": "pending", "message": "Not yet implemented"}
+        
+        # Validate input
+        if not message or not message.strip():
+            logger.error("Empty message provided")
+            return {"status": "failed", "error": "Message cannot be empty"}
+        
+        # Validate image file
+        if not image_path.exists() or not image_path.is_file():
+            logger.error(f"Image file not found or invalid: {image_path}")
+            return {"status": "failed", "error": "Image file not found or invalid"}
+        
+        # Check file extension
+        valid_extensions = {'.jpg', '.jpeg', '.png', '.gif', '.bmp'}
+        if image_path.suffix.lower() not in valid_extensions:
+            logger.error(f"Unsupported image format: {image_path.suffix}")
+            return {"status": "failed", "error": f"Unsupported image format: {image_path.suffix}"}
+        
+        # Construct Graph API URL for photos
+        url = f"https://graph.facebook.com/v18.0/{self.page_id}/photos"
+        
+        # Prepare payload (data, not params for file upload)
+        payload = {
+            'message': message,
+            'access_token': self.page_token
+        }
+        
+        try:
+            logger.info(f"Making API call to: {url}")
+            logger.debug(f"Image path: {image_path}, message length: {len(message)}")
+            
+            # Open image file and make the API call
+            with open(image_path, 'rb') as image_file:
+                files = {'source': image_file}
+                
+                # Make the API call with longer timeout for file upload
+                response = requests.post(url, data=payload, files=files, timeout=120)
+            
+            logger.info(f"API response status: {response.status_code}")
+            
+            if response.status_code == 200:
+                # Success
+                response_data = response.json()
+                post_id = response_data.get('id') or response_data.get('post_id')
+                
+                logger.info(f"✓ Image post successful! Post ID: {post_id}")
+                return {
+                    "status": "success",
+                    "post_id": post_id,
+                    "message": "Image post created successfully",
+                    "image_path": str(image_path)
+                }
+            else:
+                # Error
+                error_text = response.text
+                logger.error(f"✗ Image post failed with status {response.status_code}: {error_text}")
+                
+                try:
+                    error_data = response.json()
+                    error_message = error_data.get('error', {}).get('message', error_text)
+                except json.JSONDecodeError:
+                    error_message = error_text
+                
+                return {
+                    "status": "failed",
+                    "error": error_message,
+                    "status_code": response.status_code,
+                    "image_path": str(image_path)
+                }
+                
+        except requests.exceptions.Timeout:
+            logger.error("✗ Request timed out after 120 seconds")
+            return {
+                "status": "failed",
+                "error": "Request timed out (image upload)",
+                "image_path": str(image_path)
+            }
+        except requests.exceptions.ConnectionError:
+            logger.error("✗ Connection error occurred")
+            return {
+                "status": "failed",
+                "error": "Connection error",
+                "image_path": str(image_path)
+            }
+        except requests.exceptions.RequestException as e:
+            logger.error(f"✗ Request exception: {str(e)}")
+            return {
+                "status": "failed",
+                "error": f"Request error: {str(e)}",
+                "image_path": str(image_path)
+            }
+        except FileNotFoundError:
+            logger.error(f"✗ Image file not found: {image_path}")
+            return {
+                "status": "failed",
+                "error": "Image file not found",
+                "image_path": str(image_path)
+            }
+        except Exception as e:
+            logger.error(f"✗ Unexpected error: {str(e)}")
+            return {
+                "status": "failed",
+                "error": f"Unexpected error: {str(e)}",
+                "image_path": str(image_path)
+            }
     
     def post_video(self, message: str, video_path: Path) -> Dict[str, Any]:
         """Post video with text to Facebook page."""
@@ -188,6 +290,41 @@ def main():
                     print(f"✓ Post successful! Post ID: {result.get('post_id')}")
                 else:
                     print(f"✗ Post failed: {result.get('error')}")
+                
+                # Test post_image functionality
+                print("\n" + "="*60)
+                print("Testing post_image functionality...")
+                
+                # Check for test image
+                test_image_path = Path("Assets/Images/test_image.png")
+                if not test_image_path.exists():
+                    # Create a placeholder image for testing
+                    test_image_path.parent.mkdir(parents=True, exist_ok=True)
+                    print(f"Creating placeholder image at: {test_image_path}")
+                    
+                    # Create a simple 1x1 pixel PNG
+                    import struct
+                    png_data = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde\x00\x00\x00\tpHYs\x00\x00\x0b\x13\x00\x00\x0b\x13\x01\x00\x9a\x9c\x18\x00\x00\x00\nIDATx\x9cc```\x00\x00\x00\x04\x00\x01\xdd\x8d\xb4\x1c\x00\x00\x00\x00IEND\xaeB`\x82'
+                    
+                    with open(test_image_path, 'wb') as f:
+                        f.write(png_data)
+                
+                if test_image_path.exists():
+                    image_message = f"Test image post from SocialBoost v3 at {timestamp}"
+                    print(f"Test image: {test_image_path}")
+                    print(f"Image message: {image_message}")
+                    print("Making image API call...")
+                    
+                    image_result = poster.post_image(image_message, test_image_path)
+                    
+                    print(f"\nImage Result: {image_result}")
+                    
+                    if image_result["status"] == "success":
+                        print(f"✓ Image post successful! Post ID: {image_result.get('post_id')}")
+                    else:
+                        print(f"✗ Image post failed: {image_result.get('error')}")
+                else:
+                    print("✗ Could not create test image")
                     
             else:
                 print("✗ Token validation failed")

@@ -6,6 +6,7 @@ Unit tests for Facebook Auto Post module
 import pytest
 import os
 import json
+from pathlib import Path
 from unittest.mock import patch, MagicMock
 from Automatizare_Completa.auto_post import FacebookAutoPost
 
@@ -161,6 +162,173 @@ class TestFacebookAutoPost:
                  patch('Automatizare_Completa.auto_post.FACEBOOK_APP_ID', None):
                 with pytest.raises(ValueError, match="Facebook credentials not properly configured"):
                     FacebookAutoPost()
+    
+    @patch('Automatizare_Completa.auto_post.requests.post')
+    @patch('builtins.open', create=True)
+    def test_post_image_success(self, mock_open, mock_post, poster):
+        """Test successful image posting."""
+        # Arrange
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {'id': '12345_67890'}
+        mock_post.return_value = mock_response
+        
+        mock_file = MagicMock()
+        mock_open.return_value.__enter__.return_value = mock_file
+        
+        test_message = "Hello World"
+        test_image_path = Path("test_image.png")
+        
+        # Mock Path.exists and is_file
+        with patch.object(Path, 'exists', return_value=True), \
+             patch.object(Path, 'is_file', return_value=True), \
+             patch.object(Path, 'suffix', '.png'):
+            
+            # Act
+            result = poster.post_image(test_message, test_image_path)
+            
+            # Assert
+            expected_url = "https://graph.facebook.com/v18.0/mock_page_67890/photos"
+            expected_data = {'message': test_message, 'access_token': 'mock_token_12345'}
+            expected_files = {'source': mock_file}
+            
+            mock_post.assert_called_once_with(
+                expected_url, 
+                data=expected_data, 
+                files=expected_files, 
+                timeout=120
+            )
+            
+            assert result['status'] == 'success'
+            assert result['post_id'] == '12345_67890'
+            assert result['message'] == 'Image post created successfully'
+            assert result['image_path'] == str(test_image_path)
+    
+    def test_post_image_file_not_found(self, poster):
+        """Test image posting with file not found."""
+        # Arrange
+        test_message = "Hello World"
+        test_image_path = Path("nonexistent.png")
+        
+        # Mock Path.exists to return False
+        with patch.object(Path, 'exists', return_value=False):
+            # Act
+            result = poster.post_image(test_message, test_image_path)
+            
+            # Assert
+            assert result['status'] == 'failed'
+            assert result['error'] == 'Image file not found or invalid'
+    
+    def test_post_image_invalid_file(self, poster):
+        """Test image posting with invalid file."""
+        # Arrange
+        test_message = "Hello World"
+        test_image_path = Path("test.txt")
+        
+        # Mock Path.exists and is_file
+        with patch.object(Path, 'exists', return_value=True), \
+             patch.object(Path, 'is_file', return_value=False), \
+             patch.object(Path, 'suffix', '.txt'):
+            
+            # Act
+            result = poster.post_image(test_message, test_image_path)
+            
+            # Assert
+            assert result['status'] == 'failed'
+            assert result['error'] == 'Image file not found or invalid'
+    
+    def test_post_image_unsupported_format(self, poster):
+        """Test image posting with unsupported format."""
+        # Arrange
+        test_message = "Hello World"
+        test_image_path = Path("test.xyz")
+        
+        # Mock Path.exists and is_file
+        with patch.object(Path, 'exists', return_value=True), \
+             patch.object(Path, 'is_file', return_value=True), \
+             patch.object(Path, 'suffix', '.xyz'):
+            
+            # Act
+            result = poster.post_image(test_message, test_image_path)
+            
+            # Assert
+            assert result['status'] == 'failed'
+            assert result['error'] == 'Unsupported image format: .xyz'
+    
+    @patch('Automatizare_Completa.auto_post.requests.post')
+    @patch('builtins.open', create=True)
+    def test_post_image_api_error(self, mock_open, mock_post, poster):
+        """Test image posting with API error."""
+        # Arrange
+        mock_response = MagicMock()
+        mock_response.status_code = 400
+        mock_response.text = '{"error": {"message": "Invalid image format"}}'
+        mock_response.json.return_value = {'error': {'message': 'Invalid image format'}}
+        mock_post.return_value = mock_response
+        
+        mock_file = MagicMock()
+        mock_open.return_value.__enter__.return_value = mock_file
+        
+        test_message = "Hello World"
+        test_image_path = Path("test_image.png")
+        
+        # Mock Path.exists and is_file
+        with patch.object(Path, 'exists', return_value=True), \
+             patch.object(Path, 'is_file', return_value=True), \
+             patch.object(Path, 'suffix', '.png'):
+            
+            # Act
+            result = poster.post_image(test_message, test_image_path)
+            
+            # Assert
+            assert result['status'] == 'failed'
+            assert result['error'] == 'Invalid image format'
+            assert result['status_code'] == 400
+            assert result['image_path'] == str(test_image_path)
+    
+    @patch('Automatizare_Completa.auto_post.requests.post')
+    @patch('builtins.open', create=True)
+    def test_post_image_timeout(self, mock_open, mock_post, poster):
+        """Test image posting with timeout."""
+        # Arrange
+        from requests.exceptions import Timeout
+        mock_post.side_effect = Timeout("Request timed out")
+        
+        mock_file = MagicMock()
+        mock_open.return_value.__enter__.return_value = mock_file
+        
+        test_message = "Hello World"
+        test_image_path = Path("test_image.png")
+        
+        # Mock Path.exists and is_file
+        with patch.object(Path, 'exists', return_value=True), \
+             patch.object(Path, 'is_file', return_value=True), \
+             patch.object(Path, 'suffix', '.png'):
+            
+            # Act
+            result = poster.post_image(test_message, test_image_path)
+            
+            # Assert
+            assert result['status'] == 'failed'
+            assert result['error'] == 'Request timed out (image upload)'
+            assert result['image_path'] == str(test_image_path)
+    
+    def test_post_image_empty_message(self, poster):
+        """Test posting image with empty message."""
+        # Arrange
+        test_image_path = Path("test_image.png")
+        
+        # Mock Path.exists and is_file
+        with patch.object(Path, 'exists', return_value=True), \
+             patch.object(Path, 'is_file', return_value=True), \
+             patch.object(Path, 'suffix', '.png'):
+            
+            # Act
+            result = poster.post_image("", test_image_path)
+            
+            # Assert
+            assert result['status'] == 'failed'
+            assert result['error'] == 'Message cannot be empty'
 
 class TestFacebookAutoPostIntegration:
     """Integration tests for FacebookAutoPost."""
