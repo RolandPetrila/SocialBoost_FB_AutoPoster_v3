@@ -9,6 +9,7 @@ import sys
 import json
 import logging
 import requests
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, Optional
@@ -235,10 +236,214 @@ class FacebookAutoPost:
             }
     
     def post_video(self, message: str, video_path: Path) -> Dict[str, Any]:
-        """Post video with text to Facebook page."""
-        # TODO: Implement Facebook Graph API call for video posting
+        """Post video with text to Facebook page using resumable upload."""
         logger.info(f"Posting video: {video_path} with message: {message[:50]}...")
-        return {"status": "pending", "message": "Not yet implemented"}
+        
+        # Validate input
+        if not message or not message.strip():
+            logger.error("Empty message provided")
+            return {"status": "failed", "error": "Message cannot be empty"}
+        
+        # Validate video file
+        if not video_path.exists() or not video_path.is_file():
+            logger.error(f"Video file not found or invalid: {video_path}")
+            return {"status": "failed", "error": "Video file not found or invalid"}
+        
+        # Check file extension
+        valid_extensions = {'.mp4', '.mov', '.avi', '.wmv', '.mkv', '.flv', '.webm'}
+        if video_path.suffix.lower() not in valid_extensions:
+            logger.error(f"Unsupported video format: {video_path.suffix}")
+            return {"status": "failed", "error": f"Unsupported video format: {video_path.suffix}"}
+        
+        # Get file size
+        try:
+            file_size = video_path.stat().st_size
+            logger.info(f"Video file size: {file_size} bytes")
+        except OSError as e:
+            logger.error(f"Could not get file size: {str(e)}")
+            return {"status": "failed", "error": f"Could not get file size: {str(e)}"}
+        
+        # Construct Graph API URL for videos
+        url = f"https://graph.facebook.com/v18.0/{self.page_id}/videos"
+        
+        try:
+            # Stage 1: Start Upload Session
+            logger.info("Starting video upload session...")
+            start_params = {
+                'upload_phase': 'start',
+                'file_size': file_size,
+                'access_token': self.page_token
+            }
+            
+            start_response = requests.post(url, data=start_params, timeout=30)
+            logger.info(f"Start upload response status: {start_response.status_code}")
+            
+            if start_response.status_code != 200:
+                error_text = start_response.text
+                logger.error(f"✗ Start upload failed with status {start_response.status_code}: {error_text}")
+                try:
+                    error_data = start_response.json()
+                    error_message = error_data.get('error', {}).get('message', error_text)
+                except json.JSONDecodeError:
+                    error_message = error_text
+                return {"status": "failed", "error": f"Start upload failed: {error_message}"}
+            
+            start_data = start_response.json()
+            video_id = start_data.get('video_id')
+            upload_session_id = start_data.get('upload_session_id')
+            start_offset = start_data.get('start_offset', 0)
+            
+            logger.info(f"✓ Upload session started. Video ID: {video_id}, Session ID: {upload_session_id}")
+            
+            # Stage 2: Transfer File Chunks
+            logger.info("Transferring video file chunks...")
+            chunk_size = 4 * 1024 * 1024  # 4MB chunks
+            current_offset = start_offset
+            
+            with open(video_path, 'rb') as video_file:
+                while current_offset < file_size:
+                    # Read chunk
+                    chunk_data = video_file.read(chunk_size)
+                    if not chunk_data:
+                        break
+                    
+                    logger.debug(f"Uploading chunk at offset {current_offset}, size {len(chunk_data)}")
+                    
+                    # Transfer chunk
+                    transfer_params = {
+                        'upload_phase': 'transfer',
+                        'upload_session_id': upload_session_id,
+                        'start_offset': current_offset,
+                        'access_token': self.page_token
+                    }
+                    
+                    files = {'video_file_chunk': chunk_data}
+                    
+                    transfer_response = requests.post(url, data=transfer_params, files=files, timeout=120)
+                    
+                    if transfer_response.status_code != 200:
+                        error_text = transfer_response.text
+                        logger.error(f"✗ Transfer failed at offset {current_offset}: {error_text}")
+                        try:
+                            error_data = transfer_response.json()
+                            error_message = error_data.get('error', {}).get('message', error_text)
+                        except json.JSONDecodeError:
+                            error_message = error_text
+                        return {"status": "failed", "error": f"Transfer failed: {error_message}"}
+                    
+                    transfer_data = transfer_response.json()
+                    new_offset = transfer_data.get('start_offset', current_offset + len(chunk_data))
+                    current_offset = new_offset
+                    
+                    logger.debug(f"✓ Chunk uploaded. New offset: {current_offset}")
+            
+            logger.info("✓ All chunks transferred successfully")
+            
+            # Stage 3: Finish Upload Session
+            logger.info("Finishing video upload session...")
+            finish_params = {
+                'upload_phase': 'finish',
+                'upload_session_id': upload_session_id,
+                'description': message,
+                'access_token': self.page_token
+            }
+            
+            finish_response = requests.post(url, data=finish_params, timeout=30)
+            logger.info(f"Finish upload response status: {finish_response.status_code}")
+            
+            if finish_response.status_code != 200:
+                error_text = finish_response.text
+                logger.error(f"✗ Finish upload failed with status {finish_response.status_code}: {error_text}")
+                try:
+                    error_data = finish_response.json()
+                    error_message = error_data.get('error', {}).get('message', error_text)
+                except json.JSONDecodeError:
+                    error_message = error_text
+                return {"status": "failed", "error": f"Finish upload failed: {error_message}"}
+            
+            finish_data = finish_response.json()
+            success = finish_data.get('success', False)
+            
+            if not success:
+                logger.error("✗ Upload finish returned success=False")
+                return {"status": "failed", "error": "Upload finish failed"}
+            
+            logger.info(f"✓ Video upload completed successfully! Video ID: {video_id}")
+            
+            # Optional: Check video processing status
+            logger.info("Checking video processing status...")
+            max_checks = 10
+            check_interval = 5  # seconds
+            
+            for check_num in range(max_checks):
+                status_url = f"https://graph.facebook.com/v18.0/{video_id}"
+                status_params = {
+                    'fields': 'status',
+                    'access_token': self.page_token
+                }
+                
+                status_response = requests.get(status_url, params=status_params, timeout=30)
+                
+                if status_response.status_code == 200:
+                    status_data = status_response.json()
+                    video_status = status_data.get('status', 'unknown')
+                    logger.info(f"Video status check {check_num + 1}: {video_status}")
+                    
+                    if video_status == 'ready':
+                        logger.info("✓ Video is ready for viewing")
+                        break
+                    elif video_status == 'failed':
+                        logger.warning("⚠ Video processing failed")
+                        break
+                else:
+                    logger.warning(f"Status check failed: {status_response.status_code}")
+                
+                if check_num < max_checks - 1:
+                    time.sleep(check_interval)
+            
+            return {
+                "status": "success",
+                "video_id": video_id,
+                "message": "Video upload initiated successfully",
+                "video_path": str(video_path),
+                "file_size": file_size
+            }
+            
+        except requests.exceptions.Timeout:
+            logger.error("✗ Request timed out")
+            return {
+                "status": "failed",
+                "error": "Request timed out",
+                "video_path": str(video_path)
+            }
+        except requests.exceptions.ConnectionError:
+            logger.error("✗ Connection error occurred")
+            return {
+                "status": "failed",
+                "error": "Connection error",
+                "video_path": str(video_path)
+            }
+        except requests.exceptions.RequestException as e:
+            logger.error(f"✗ Request exception: {str(e)}")
+            return {
+                "status": "failed",
+                "error": f"Request error: {str(e)}",
+                "video_path": str(video_path)
+            }
+        except FileNotFoundError:
+            logger.error(f"✗ Video file not found: {video_path}")
+            return {
+                "status": "failed",
+                "error": "Video file not found",
+                "video_path": str(video_path)
+            }
+        except Exception as e:
+            logger.error(f"✗ Unexpected error: {str(e)}")
+            return {
+                "status": "failed",
+                "error": f"Unexpected error: {str(e)}",
+                "video_path": str(video_path)
+            }
     
     def schedule_post(self, message: str, scheduled_time: datetime) -> Dict[str, Any]:
         """Schedule a post for future publishing."""
@@ -325,6 +530,40 @@ def main():
                         print(f"✗ Image post failed: {image_result.get('error')}")
                 else:
                     print("✗ Could not create test image")
+                
+                # Test post_video functionality
+                print("\n" + "="*60)
+                print("Testing post_video functionality...")
+                
+                # Check for test video
+                test_video_path = Path("Assets/Videos/test_video.mp4")
+                if not test_video_path.exists():
+                    # Create a placeholder video for testing
+                    test_video_path.parent.mkdir(parents=True, exist_ok=True)
+                    print(f"Creating placeholder video at: {test_video_path}")
+                    
+                    # Create a minimal MP4 file (just header, no actual video data)
+                    mp4_header = b'\x00\x00\x00\x20ftypmp42\x00\x00\x00\x00mp41mp42isom\x00\x00\x00\x08mdat\x00\x00\x00\x00'
+                    
+                    with open(test_video_path, 'wb') as f:
+                        f.write(mp4_header)
+                
+                if test_video_path.exists():
+                    video_message = f"Test video post from SocialBoost v3 at {timestamp}"
+                    print(f"Test video: {test_video_path}")
+                    print(f"Video message: {video_message}")
+                    print("Making video API call...")
+                    
+                    video_result = poster.post_video(video_message, test_video_path)
+                    
+                    print(f"\nVideo Result: {video_result}")
+                    
+                    if video_result["status"] == "success":
+                        print(f"✓ Video post successful! Video ID: {video_result.get('video_id')}")
+                    else:
+                        print(f"✗ Video post failed: {video_result.get('error')}")
+                else:
+                    print("✗ Could not create test video")
                     
             else:
                 print("✗ Token validation failed")

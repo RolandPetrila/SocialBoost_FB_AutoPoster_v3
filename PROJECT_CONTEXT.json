@@ -6,8 +6,8 @@
   "ai_model_primary": "Claude 3.5 Sonnet",
   "sync_mode": "Manual-AI-GitHub-Cursor",
   "python_version": "3.13.7",
-  "last_commit": "019bfc6 - feat(autopost): Implement basic text posting and validation runner",
-  "last_run": "2025-10-25T16:14:28",
+  "last_commit": "a5cbd64 - feat(autopost): Implement image posting and fix validation runner",
+  "last_run": "2025-10-25T16:27:42",
   "last_exit_code": null,
   "last_log_dir": ""
 }

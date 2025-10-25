@@ -329,6 +329,196 @@ class TestFacebookAutoPost:
             # Assert
             assert result['status'] == 'failed'
             assert result['error'] == 'Message cannot be empty'
+    
+    @patch('Automatizare_Completa.auto_post.requests.post')
+    @patch('Automatizare_Completa.auto_post.requests.get')
+    @patch('builtins.open', create=True)
+    def test_post_video_success(self, mock_open, mock_get, mock_post, poster):
+        """Test successful video posting."""
+        # Arrange
+        mock_file = MagicMock()
+        mock_file.read.side_effect = [b'chunk1', b'chunk2', b'']  # Simulate chunks
+        mock_open.return_value.__enter__.return_value = mock_file
+        
+        # Mock start upload response
+        start_response = MagicMock()
+        start_response.status_code = 200
+        start_response.json.return_value = {
+            'video_id': '12345_67890',
+            'upload_session_id': 'session_123',
+            'start_offset': 0
+        }
+        
+        # Mock transfer responses
+        transfer_response = MagicMock()
+        transfer_response.status_code = 200
+        transfer_response.json.return_value = {'start_offset': 1024}
+        
+        # Mock finish response
+        finish_response = MagicMock()
+        finish_response.status_code = 200
+        finish_response.json.return_value = {'success': True}
+        
+        # Mock status check response
+        status_response = MagicMock()
+        status_response.status_code = 200
+        status_response.json.return_value = {'status': 'ready'}
+        
+        mock_post.side_effect = [start_response, transfer_response, transfer_response, finish_response]
+        mock_get.return_value = status_response
+        
+        test_message = "Hello World"
+        test_video_path = Path("test_video.mp4")
+        
+        # Mock Path.exists, is_file, suffix, and stat
+        with patch.object(Path, 'exists', return_value=True), \
+             patch.object(Path, 'is_file', return_value=True), \
+             patch.object(Path, 'suffix', '.mp4'), \
+             patch.object(Path, 'stat') as mock_stat:
+            
+            mock_stat.return_value.st_size = 2048
+            
+            # Act
+            result = poster.post_video(test_message, test_video_path)
+            
+            # Assert
+            assert result['status'] == 'success'
+            assert result['video_id'] == '12345_67890'
+            assert result['message'] == 'Video upload initiated successfully'
+            assert result['video_path'] == str(test_video_path)
+            assert result['file_size'] == 2048
+    
+    def test_post_video_file_not_found(self, poster):
+        """Test video posting with file not found."""
+        # Arrange
+        test_message = "Hello World"
+        test_video_path = Path("nonexistent.mp4")
+        
+        # Mock Path.exists to return False
+        with patch.object(Path, 'exists', return_value=False):
+            # Act
+            result = poster.post_video(test_message, test_video_path)
+            
+            # Assert
+            assert result['status'] == 'failed'
+            assert result['error'] == 'Video file not found or invalid'
+    
+    def test_post_video_unsupported_format(self, poster):
+        """Test video posting with unsupported format."""
+        # Arrange
+        test_message = "Hello World"
+        test_video_path = Path("test.txt")
+        
+        # Mock Path.exists and is_file
+        with patch.object(Path, 'exists', return_value=True), \
+             patch.object(Path, 'is_file', return_value=True), \
+             patch.object(Path, 'suffix', '.txt'):
+            
+            # Act
+            result = poster.post_video(test_message, test_video_path)
+            
+            # Assert
+            assert result['status'] == 'failed'
+            assert result['error'] == 'Unsupported video format: .txt'
+    
+    @patch('Automatizare_Completa.auto_post.requests.post')
+    @patch('builtins.open', create=True)
+    def test_post_video_api_error_start(self, mock_open, mock_post, poster):
+        """Test video posting with API error at start phase."""
+        # Arrange
+        mock_file = MagicMock()
+        mock_open.return_value.__enter__.return_value = mock_file
+        
+        # Mock start upload error response
+        start_response = MagicMock()
+        start_response.status_code = 400
+        start_response.text = '{"error": {"message": "Invalid video format"}}'
+        start_response.json.return_value = {'error': {'message': 'Invalid video format'}}
+        
+        mock_post.return_value = start_response
+        
+        test_message = "Hello World"
+        test_video_path = Path("test_video.mp4")
+        
+        # Mock Path.exists, is_file, suffix, and stat
+        with patch.object(Path, 'exists', return_value=True), \
+             patch.object(Path, 'is_file', return_value=True), \
+             patch.object(Path, 'suffix', '.mp4'), \
+             patch.object(Path, 'stat') as mock_stat:
+            
+            mock_stat.return_value.st_size = 1024
+            
+            # Act
+            result = poster.post_video(test_message, test_video_path)
+            
+            # Assert
+            assert result['status'] == 'failed'
+            assert 'Start upload failed' in result['error']
+            assert 'Invalid video format' in result['error']
+    
+    @patch('Automatizare_Completa.auto_post.requests.post')
+    @patch('builtins.open', create=True)
+    def test_post_video_api_error_transfer(self, mock_open, mock_post, poster):
+        """Test video posting with API error at transfer phase."""
+        # Arrange
+        mock_file = MagicMock()
+        mock_file.read.side_effect = [b'chunk1', b'']  # Simulate chunks
+        mock_open.return_value.__enter__.return_value = mock_file
+        
+        # Mock start upload success response
+        start_response = MagicMock()
+        start_response.status_code = 200
+        start_response.json.return_value = {
+            'video_id': '12345_67890',
+            'upload_session_id': 'session_123',
+            'start_offset': 0
+        }
+        
+        # Mock transfer error response
+        transfer_response = MagicMock()
+        transfer_response.status_code = 500
+        transfer_response.text = '{"error": {"message": "Transfer failed"}}'
+        transfer_response.json.return_value = {'error': {'message': 'Transfer failed'}}
+        
+        mock_post.side_effect = [start_response, transfer_response]
+        
+        test_message = "Hello World"
+        test_video_path = Path("test_video.mp4")
+        
+        # Mock Path.exists, is_file, suffix, and stat
+        with patch.object(Path, 'exists', return_value=True), \
+             patch.object(Path, 'is_file', return_value=True), \
+             patch.object(Path, 'suffix', '.mp4'), \
+             patch.object(Path, 'stat') as mock_stat:
+            
+            mock_stat.return_value.st_size = 1024
+            
+            # Act
+            result = poster.post_video(test_message, test_video_path)
+            
+            # Assert
+            assert result['status'] == 'failed'
+            assert 'Transfer failed' in result['error']
+    
+    def test_post_video_empty_message(self, poster):
+        """Test posting video with empty message."""
+        # Arrange
+        test_video_path = Path("test_video.mp4")
+        
+        # Mock Path.exists, is_file, suffix, and stat
+        with patch.object(Path, 'exists', return_value=True), \
+             patch.object(Path, 'is_file', return_value=True), \
+             patch.object(Path, 'suffix', '.mp4'), \
+             patch.object(Path, 'stat') as mock_stat:
+            
+            mock_stat.return_value.st_size = 1024
+            
+            # Act
+            result = poster.post_video("", test_video_path)
+            
+            # Assert
+            assert result['status'] == 'failed'
+            assert result['error'] == 'Message cannot be empty'
 
 class TestFacebookAutoPostIntegration:
     """Integration tests for FacebookAutoPost."""

@@ -16,9 +16,10 @@
 - [x] **Implement image posting functionality** - post_image() with file validation and upload
 - [x] **Add image posting tests** - 7 new unit tests for image posting scenarios
 - [x] **Fix validation system** - Corrected mypy integration and result saving
+- [x] **Implement video posting functionality** - post_video() with resumable upload API
+- [x] **Add video posting tests** - 6 new unit tests for video posting scenarios
 
 ### Current Tasks (Phase 3)
-- [ ] Implement video posting functionality
 - [ ] Create scheduler.py for automated posting
 - [ ] Implement OpenAI content generation
 - [ ] Add error handling and retry logic
