@@ -8,6 +8,7 @@ import os
 import sys
 import json
 import logging
+import requests
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, Optional
@@ -47,9 +48,83 @@ class FacebookAutoPost:
     
     def post_text(self, message: str) -> Dict[str, Any]:
         """Post text message to Facebook page."""
-        # TODO: Implement Facebook Graph API call
         logger.info(f"Posting text message: {message[:50]}...")
-        return {"status": "pending", "message": "Not yet implemented"}
+        
+        # Validate input
+        if not message or not message.strip():
+            logger.error("Empty message provided")
+            return {"status": "failed", "error": "Message cannot be empty"}
+        
+        # Construct Graph API URL
+        url = f"https://graph.facebook.com/v18.0/{self.page_id}/feed"
+        
+        # Prepare parameters
+        params = {
+            'message': message,
+            'access_token': self.page_token
+        }
+        
+        try:
+            logger.info(f"Making API call to: {url}")
+            logger.debug(f"Parameters: message length={len(message)}, token present={bool(self.page_token)}")
+            
+            # Make the API call
+            response = requests.post(url, params=params, timeout=30)
+            
+            logger.info(f"API response status: {response.status_code}")
+            
+            if response.status_code == 200:
+                # Success
+                response_data = response.json()
+                post_id = response_data.get('id')
+                
+                logger.info(f"✓ Post successful! Post ID: {post_id}")
+                return {
+                    "status": "success",
+                    "post_id": post_id,
+                    "message": "Post created successfully"
+                }
+            else:
+                # Error
+                error_text = response.text
+                logger.error(f"✗ Post failed with status {response.status_code}: {error_text}")
+                
+                try:
+                    error_data = response.json()
+                    error_message = error_data.get('error', {}).get('message', error_text)
+                except json.JSONDecodeError:
+                    error_message = error_text
+                
+                return {
+                    "status": "failed",
+                    "error": error_message,
+                    "status_code": response.status_code
+                }
+                
+        except requests.exceptions.Timeout:
+            logger.error("✗ Request timed out after 30 seconds")
+            return {
+                "status": "failed",
+                "error": "Request timed out"
+            }
+        except requests.exceptions.ConnectionError:
+            logger.error("✗ Connection error occurred")
+            return {
+                "status": "failed",
+                "error": "Connection error"
+            }
+        except requests.exceptions.RequestException as e:
+            logger.error(f"✗ Request exception: {str(e)}")
+            return {
+                "status": "failed",
+                "error": f"Request error: {str(e)}"
+            }
+        except Exception as e:
+            logger.error(f"✗ Unexpected error: {str(e)}")
+            return {
+                "status": "failed",
+                "error": f"Unexpected error: {str(e)}"
+            }
     
     def post_image(self, message: str, image_path: Path) -> Dict[str, Any]:
         """Post image with text to Facebook page."""
@@ -94,6 +169,26 @@ def main():
             # Test token validity
             if poster.check_token_validity():
                 print("✓ Token appears to be present")
+                
+                # Test post_text functionality
+                print("\n" + "="*60)
+                print("Testing post_text functionality...")
+                
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                test_message = f"Test post from SocialBoost v3 via Cursor at {timestamp}"
+                
+                print(f"Test message: {test_message}")
+                print("Making API call...")
+                
+                result = poster.post_text(test_message)
+                
+                print(f"\nResult: {result}")
+                
+                if result["status"] == "success":
+                    print(f"✓ Post successful! Post ID: {result.get('post_id')}")
+                else:
+                    print(f"✗ Post failed: {result.get('error')}")
+                    
             else:
                 print("✗ Token validation failed")
                 

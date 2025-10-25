@@ -10,7 +10,7 @@ import json
 import argparse
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import re
 
 class PromptGenerator:
