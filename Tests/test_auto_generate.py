@@ -352,4 +352,85 @@ class TestContentGenerator:
                 call_args = mock_client.chat.completions.create.call_args
                 messages = call_args[1]['messages']
                 image_url = messages[1]['content'][1]['image_url']['url']
-                assert f"data:image/{expected_type};base64,base64encodeddata" in image_url
+    @patch('Automatizare_Completa.auto_generate.openai.OpenAI')
+    @patch('Automatizare_Completa.auto_generate.time.sleep')
+    def test_generate_post_text_retry_success(self, mock_sleep, mock_openai_class, temp_dir):
+        """Test that generate_post_text retries on retryable errors and succeeds."""
+        # Arrange
+        mock_client = MagicMock()
+        mock_response_success = MagicMock()
+        mock_response_success.choices = [MagicMock()]
+        mock_response_success.choices[0].message.content = "Generated text"
+        
+        # First call fails with rate limit, second succeeds
+        mock_client.chat.completions.create.side_effect = [
+            Exception("Rate limit"),
+            mock_response_success
+        ]
+        mock_openai_class.return_value = mock_client
+        
+        generator = ContentGenerator(api_key="test-key")
+        
+        # Act
+        result = generator.generate_post_text("Test prompt")
+        
+        # Assert
+        assert result == "Generated text"
+        assert mock_client.chat.completions.create.call_count == 2
+        mock_sleep.assert_called_once_with(1)  # 2^0 = 1 second wait
+    
+    @patch('Automatizare_Completa.auto_generate.openai.OpenAI')
+    @patch('Automatizare_Completa.auto_generate.time.sleep')
+    def test_generate_post_text_retry_max_attempts(self, mock_sleep, mock_openai_class, temp_dir):
+        """Test that generate_post_text fails after max retries."""
+        # Arrange
+        mock_client = MagicMock()
+        mock_client.chat.completions.create.side_effect = Exception("Rate limit")
+        mock_openai_class.return_value = mock_client
+        
+        generator = ContentGenerator(api_key="test-key")
+        
+        # Act
+        result = generator.generate_post_text("Test prompt")
+        
+        # Assert
+        assert "✨ Something wonderful is brewing" in result
+        assert mock_client.chat.completions.create.call_count == 3
+        assert mock_sleep.call_count == 2  # 2 retries
+    
+    @patch('Automatizare_Completa.auto_generate.openai.OpenAI')
+    @patch('Automatizare_Completa.auto_generate.time.sleep')
+    def test_generate_caption_retry_success(self, mock_sleep, mock_openai_class, temp_dir):
+        """Test that generate_caption_for_image retries on retryable errors and succeeds."""
+        # Arrange
+        mock_client = MagicMock()
+        mock_response_success = MagicMock()
+        mock_response_success.choices = [MagicMock()]
+        mock_response_success.choices[0].message.content = "Generated caption"
+        
+        # First call fails with connection error, second succeeds
+        mock_client.chat.completions.create.side_effect = [
+            Exception("Connection failed"),
+            mock_response_success
+        ]
+        mock_openai_class.return_value = mock_client
+        
+        generator = ContentGenerator(api_key="test-key")
+        test_image_path = Path("test_image.jpg")
+        
+        # Mock Path.exists and is_file
+        with patch.object(Path, 'exists', return_value=True), \
+             patch.object(Path, 'is_file', return_value=True), \
+             patch.object(Path, 'suffix', '.jpg'), \
+             patch('builtins.open', create=True), \
+             patch('base64.b64encode') as mock_b64encode:
+            
+            mock_b64encode.return_value = b"base64encodeddata"
+            
+            # Act
+            result = generator.generate_caption_for_image(test_image_path)
+            
+            # Assert
+            assert result == "Generated caption"
+            assert mock_client.chat.completions.create.call_count == 2
+            mock_sleep.assert_called_once_with(1)

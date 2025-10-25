@@ -560,6 +560,105 @@ class TestFacebookAutoPostIntegration:
                 assert call_args[1]['params']['access_token'] == "test_token"
                 assert call_args[1]['timeout'] == 30
 
+    @patch('Automatizare_Completa.auto_post.requests.post')
+    @patch('Automatizare_Completa.auto_post.time.sleep')
+    def test_post_text_retry_success(self, mock_sleep, mock_post):
+        """Test that post_text retries on retryable errors and succeeds."""
+        # Arrange
+        mock_env_vars = {
+            "FACEBOOK_PAGE_TOKEN": "test_token",
+            "FACEBOOK_PAGE_ID": "test_page",
+            "FACEBOOK_APP_ID": "test_app"
+        }
+        
+        # First call fails with retryable error, second succeeds
+        mock_response_fail = MagicMock()
+        mock_response_fail.status_code = 500
+        
+        mock_response_success = MagicMock()
+        mock_response_success.status_code = 200
+        mock_response_success.json.return_value = {"id": "post_123"}
+        
+        mock_post.side_effect = [mock_response_fail, mock_response_success]
+        
+        with patch.dict(os.environ, mock_env_vars, clear=True):
+            with patch('Automatizare_Completa.auto_post.FACEBOOK_PAGE_TOKEN', 'test_token'), \
+                 patch('Automatizare_Completa.auto_post.FACEBOOK_PAGE_ID', 'test_page'), \
+                 patch('Automatizare_Completa.auto_post.FACEBOOK_APP_ID', 'test_app'):
+                poster = FacebookAutoPost()
+                
+                # Act
+                result = poster.post_text("Test message")
+                
+                # Assert
+                assert result["status"] == "success"
+                assert result["post_id"] == "post_123"
+                assert mock_post.call_count == 2
+                mock_sleep.assert_called_once_with(1)  # 2^0 = 1 second wait
+    
+    @patch('Automatizare_Completa.auto_post.requests.post')
+    @patch('Automatizare_Completa.auto_post.time.sleep')
+    def test_post_text_retry_max_attempts(self, mock_sleep, mock_post):
+        """Test that post_text fails after max retries."""
+        # Arrange
+        mock_env_vars = {
+            "FACEBOOK_PAGE_TOKEN": "test_token",
+            "FACEBOOK_PAGE_ID": "test_page",
+            "FACEBOOK_APP_ID": "test_app"
+        }
+        
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        mock_post.return_value = mock_response
+        
+        with patch.dict(os.environ, mock_env_vars, clear=True):
+            with patch('Automatizare_Completa.auto_post.FACEBOOK_PAGE_TOKEN', 'test_token'), \
+                 patch('Automatizare_Completa.auto_post.FACEBOOK_PAGE_ID', 'test_page'), \
+                 patch('Automatizare_Completa.auto_post.FACEBOOK_APP_ID', 'test_app'):
+                poster = FacebookAutoPost()
+                
+                # Act
+                result = poster.post_text("Test message")
+                
+                # Assert
+                assert result["status"] == "failed"
+                assert "failed after 3 attempts" in result["error"]
+                assert mock_post.call_count == 3
+                assert mock_sleep.call_count == 2  # 2 retries
+    
+    @patch('Automatizare_Completa.auto_post.requests.post')
+    @patch('Automatizare_Completa.auto_post.time.sleep')
+    def test_post_text_connection_error_retry(self, mock_sleep, mock_post):
+        """Test that post_text retries on connection errors."""
+        # Arrange
+        mock_env_vars = {
+            "FACEBOOK_PAGE_TOKEN": "test_token",
+            "FACEBOOK_PAGE_ID": "test_page",
+            "FACEBOOK_APP_ID": "test_app"
+        }
+        
+        from requests.exceptions import ConnectionError
+        mock_response_success = MagicMock()
+        mock_response_success.status_code = 200
+        mock_response_success.json.return_value = {"id": "post_123"}
+        
+        mock_post.side_effect = [ConnectionError("Connection failed"), mock_response_success]
+        
+        with patch.dict(os.environ, mock_env_vars, clear=True):
+            with patch('Automatizare_Completa.auto_post.FACEBOOK_PAGE_TOKEN', 'test_token'), \
+                 patch('Automatizare_Completa.auto_post.FACEBOOK_PAGE_ID', 'test_page'), \
+                 patch('Automatizare_Completa.auto_post.FACEBOOK_APP_ID', 'test_app'):
+                poster = FacebookAutoPost()
+                
+                # Act
+                result = poster.post_text("Test message")
+                
+                # Assert
+                assert result["status"] == "success"
+                assert result["post_id"] == "post_123"
+                assert mock_post.call_count == 2
+                mock_sleep.assert_called_once_with(1)  # 2^0 = 1 second wait
+
 if __name__ == "__main__":
     # Run tests if script is executed directly
     pytest.main([__file__, "-v"])

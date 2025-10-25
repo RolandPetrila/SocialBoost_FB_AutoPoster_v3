@@ -8,6 +8,7 @@ import os
 import sys
 import base64
 import logging
+import time
 import openai
 from pathlib import Path
 from datetime import datetime
@@ -46,43 +47,85 @@ class ContentGenerator:
         """Generate social media post text using OpenAI."""
         logger.info(f"Generating post text for prompt: {prompt[:50]}...")
         
-        try:
-            messages = [
-                {
-                    "role": "system",
-                    "content": "You are a social media content creator. Generate engaging, authentic posts for Facebook. Keep posts conversational, engaging, and appropriate for a general audience. Include relevant hashtags when appropriate."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ]
-            
-            logger.info(f"Making OpenAI API call with model: {self.model}")
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                max_tokens=max_tokens,
-                temperature=0.7
-            )
-            
-            generated_text = response.choices[0].message.content
-            logger.info(f"✓ Generated text successfully ({len(generated_text)} characters)")
-            
-            return generated_text
-            
-        except openai.APIError as e:
-            logger.error(f"✗ OpenAI API error: {e}")
-            return self._get_fallback_text("API error occurred")
-        except openai.RateLimitError as e:
-            logger.error(f"✗ OpenAI rate limit error: {e}")
-            return self._get_fallback_text("Rate limit exceeded")
-        except TimeoutError as e:
-            logger.error(f"✗ OpenAI timeout error: {e}")
-            return self._get_fallback_text("Request timed out")
-        except Exception as e:
-            logger.error(f"✗ Unexpected error: {e}")
-            return self._get_fallback_text("Generation failed")
+        # Retry logic
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                messages = [
+                    {
+                        "role": "system",
+                        "content": "You are a social media content creator. Generate engaging, authentic posts for Facebook. Keep posts conversational, engaging, and appropriate for a general audience. Include relevant hashtags when appropriate."
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ]
+                
+                logger.info(f"Making OpenAI API call with model: {self.model} (attempt {attempt + 1}/{max_retries})")
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    max_tokens=max_tokens,
+                    temperature=0.7
+                )
+                
+                generated_text = response.choices[0].message.content
+                logger.info(f"✓ Generated text successfully ({len(generated_text)} characters)")
+                
+                return generated_text
+                
+            except openai.RateLimitError as e:
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt  # Exponential backoff
+                    logger.warning(f"Rate limit error: {e}. Retrying in {wait_time} seconds...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logger.error(f"✗ OpenAI rate limit error after {max_retries} attempts: {e}")
+                    return self._get_fallback_text("Rate limit exceeded")
+            except openai.APIConnectionError as e:
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt
+                    logger.warning(f"API connection error: {e}. Retrying in {wait_time} seconds...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logger.error(f"✗ OpenAI API connection error after {max_retries} attempts: {e}")
+                    return self._get_fallback_text("API error occurred")
+            except openai.APITimeoutError as e:
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt
+                    logger.warning(f"API timeout error: {e}. Retrying in {wait_time} seconds...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logger.error(f"✗ OpenAI API timeout error after {max_retries} attempts: {e}")
+                    return self._get_fallback_text("Request timed out")
+            except openai.APIError as e:
+                logger.error(f"✗ OpenAI API error: {e}")
+                return self._get_fallback_text("API error occurred")
+            except TimeoutError as e:
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt
+                    logger.warning(f"Timeout error: {e}. Retrying in {wait_time} seconds...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logger.error(f"✗ OpenAI timeout error after {max_retries} attempts: {e}")
+                    return self._get_fallback_text("Request timed out")
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt
+                    logger.warning(f"Unexpected error: {e}. Retrying in {wait_time} seconds...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logger.error(f"✗ Unexpected error after {max_retries} attempts: {e}")
+                    return self._get_fallback_text("Generation failed")
+        
+        # This should never be reached, but just in case
+        return self._get_fallback_text("Generation failed")
     
     def generate_caption_for_image(self, image_path: Path, context_prompt: str = "") -> str:
         """Generate caption for an image using OpenAI Vision."""
@@ -99,72 +142,114 @@ class ContentGenerator:
             logger.error(f"Unsupported image format: {image_path.suffix}")
             return self._get_fallback_text("Unsupported image format")
         
-        try:
-            # Read and encode image
-            with open(image_path, 'rb') as image_file:
-                image_data = image_file.read()
-                base64_image = base64.b64encode(image_data).decode('utf-8')
-            
-            # Determine image type
-            image_type = "jpeg"
-            if image_path.suffix.lower() in ['.png']:
-                image_type = "png"
-            elif image_path.suffix.lower() in ['.gif']:
-                image_type = "gif"
-            elif image_path.suffix.lower() in ['.webp']:
-                image_type = "webp"
-            
-            # Construct data URL
-            data_url = f"data:image/{image_type};base64,{base64_image}"
-            
-            # Build messages for Vision API
-            messages = [
-                {
-                    "role": "system",
-                    "content": "You are a social media content creator. Analyze the provided image and generate an engaging caption for Facebook. Make it conversational, relevant to the image content, and include appropriate hashtags. Keep it under 200 characters."
-                },
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": f"Generate a Facebook caption for this image.{' ' + context_prompt if context_prompt else ''}"
-                        },
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": data_url
+        # Retry logic
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                # Read and encode image
+                with open(image_path, 'rb') as image_file:
+                    image_data = image_file.read()
+                    base64_image = base64.b64encode(image_data).decode('utf-8')
+                
+                # Determine image type
+                image_type = "jpeg"
+                if image_path.suffix.lower() in ['.png']:
+                    image_type = "png"
+                elif image_path.suffix.lower() in ['.gif']:
+                    image_type = "gif"
+                elif image_path.suffix.lower() in ['.webp']:
+                    image_type = "webp"
+                
+                # Construct data URL
+                data_url = f"data:image/{image_type};base64,{base64_image}"
+                
+                # Build messages for Vision API
+                messages = [
+                    {
+                        "role": "system",
+                        "content": "You are a social media content creator. Analyze the provided image and generate an engaging caption for Facebook. Make it conversational, relevant to the image content, and include appropriate hashtags. Keep it under 200 characters."
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": f"Generate a Facebook caption for this image.{' ' + context_prompt if context_prompt else ''}"
+                            },
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": data_url
+                                }
                             }
-                        }
-                    ]
-                }
-            ]
-            
-            logger.info(f"Making OpenAI Vision API call with model: {self.model}")
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                max_tokens=300,
-                temperature=0.7
-            )
-            
-            generated_caption = response.choices[0].message.content
-            logger.info(f"✓ Generated caption successfully ({len(generated_caption)} characters)")
-            
-            return generated_caption
-            
-        except openai.APIError as e:
-            logger.error(f"✗ OpenAI API error: {e}")
-            return self._get_fallback_text("API error occurred")
-        except openai.RateLimitError as e:
-            logger.error(f"✗ OpenAI rate limit error: {e}")
-            return self._get_fallback_text("Rate limit exceeded")
-        except TimeoutError as e:
-            logger.error(f"✗ OpenAI timeout error: {e}")
-            return self._get_fallback_text("Request timed out")
-        except Exception as e:
-            logger.error(f"✗ Unexpected error: {e}")
-            return self._get_fallback_text("Caption generation failed")
+                        ]
+                    }
+                ]
+                
+                logger.info(f"Making OpenAI Vision API call with model: {self.model} (attempt {attempt + 1}/{max_retries})")
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    max_tokens=300,
+                    temperature=0.7
+                )
+                
+                generated_caption = response.choices[0].message.content
+                logger.info(f"✓ Generated caption successfully ({len(generated_caption)} characters)")
+                
+                return generated_caption
+                
+            except openai.RateLimitError as e:
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt
+                    logger.warning(f"Rate limit error: {e}. Retrying in {wait_time} seconds...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logger.error(f"✗ OpenAI rate limit error after {max_retries} attempts: {e}")
+                    return self._get_fallback_text("Rate limit exceeded")
+            except openai.APIConnectionError as e:
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt
+                    logger.warning(f"API connection error: {e}. Retrying in {wait_time} seconds...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logger.error(f"✗ OpenAI API connection error after {max_retries} attempts: {e}")
+                    return self._get_fallback_text("API error occurred")
+            except openai.APITimeoutError as e:
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt
+                    logger.warning(f"API timeout error: {e}. Retrying in {wait_time} seconds...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logger.error(f"✗ OpenAI API timeout error after {max_retries} attempts: {e}")
+                    return self._get_fallback_text("Request timed out")
+            except openai.APIError as e:
+                logger.error(f"✗ OpenAI API error: {e}")
+                return self._get_fallback_text("API error occurred")
+            except TimeoutError as e:
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt
+                    logger.warning(f"Timeout error: {e}. Retrying in {wait_time} seconds...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logger.error(f"✗ OpenAI timeout error after {max_retries} attempts: {e}")
+                    return self._get_fallback_text("Request timed out")
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt
+                    logger.warning(f"Unexpected error: {e}. Retrying in {wait_time} seconds...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logger.error(f"✗ Unexpected error after {max_retries} attempts: {e}")
+                    return self._get_fallback_text("Caption generation failed")
+        
+        # This should never be reached, but just in case
+        return self._get_fallback_text("Caption generation failed")
     
     def check_api_status(self) -> bool:
         """Check if OpenAI API is accessible."""

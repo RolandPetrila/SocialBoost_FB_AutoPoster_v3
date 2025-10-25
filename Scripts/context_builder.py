@@ -17,9 +17,9 @@ import re
 class ContextBuilder:
     """Builds comprehensive context from project files."""
     
-    def __init__(self, root_path: Path = None):
+    def __init__(self, root_path: Optional[Path] = None):
         self.root_path = root_path or Path.cwd()
-        self.context = {
+        self.context: Dict[str, Any] = {
             "timestamp": datetime.now().isoformat(),
             "project_info": {},
             "structure": {},
@@ -141,7 +141,7 @@ class ContextBuilder:
             # Parse AST
             tree = ast.parse(content)
             
-            module_info = {
+            module_info: Dict[str, Any] = {
                 "docstring": ast.get_docstring(tree),
                 "imports": [],
                 "classes": [],
@@ -160,7 +160,7 @@ class ContextBuilder:
                         module_info["imports"].append(node.module)
                         
                 elif isinstance(node, ast.ClassDef):
-                    class_info = {
+                    class_info: Dict[str, Any] = {
                         "name": node.name,
                         "docstring": ast.get_docstring(node),
                         "methods": []

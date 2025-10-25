@@ -65,67 +65,104 @@ class FacebookAutoPost:
             'access_token': self.page_token
         }
         
-        try:
-            logger.info(f"Making API call to: {url}")
-            logger.debug(f"Parameters: message length={len(message)}, token present={bool(self.page_token)}")
-            
-            # Make the API call
-            response = requests.post(url, params=params, timeout=30)
-            
-            logger.info(f"API response status: {response.status_code}")
-            
-            if response.status_code == 200:
-                # Success
-                response_data = response.json()
-                post_id = response_data.get('id')
+        # Retry logic
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Making API call to: {url} (attempt {attempt + 1}/{max_retries})")
+                logger.debug(f"Parameters: message length={len(message)}, token present={bool(self.page_token)}")
                 
-                logger.info(f"✓ Post successful! Post ID: {post_id}")
-                return {
-                    "status": "success",
-                    "post_id": post_id,
-                    "message": "Post created successfully"
-                }
-            else:
-                # Error
-                error_text = response.text
-                logger.error(f"✗ Post failed with status {response.status_code}: {error_text}")
+                # Make the API call
+                response = requests.post(url, params=params, timeout=30)
                 
-                try:
-                    error_data = response.json()
-                    error_message = error_data.get('error', {}).get('message', error_text)
-                except json.JSONDecodeError:
-                    error_message = error_text
+                logger.info(f"API response status: {response.status_code}")
                 
+                if response.status_code == 200:
+                    # Success
+                    response_data = response.json()
+                    post_id = response_data.get('id')
+                    
+                    logger.info(f"✓ Post successful! Post ID: {post_id}")
+                    return {
+                        "status": "success",
+                        "post_id": post_id,
+                        "message": "Post created successfully"
+                    }
+                elif response.status_code in [429, 500, 502, 503, 504]:
+                    # Retryable errors
+                    if attempt < max_retries - 1:
+                        wait_time = 2 ** attempt  # Exponential backoff
+                        logger.warning(f"Retryable error {response.status_code}. Retrying in {wait_time} seconds...")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        logger.error(f"✗ API call failed after {max_retries} attempts. Status: {response.status_code}")
+                        return {
+                            "status": "failed",
+                            "error": f"API call failed after {max_retries} attempts. Status: {response.status_code}"
+                        }
+                else:
+                    # Non-retryable errors
+                    error_text = response.text
+                    logger.error(f"✗ Post failed with status {response.status_code}: {error_text}")
+                    
+                    try:
+                        error_data = response.json()
+                        error_message = error_data.get('error', {}).get('message', error_text)
+                    except json.JSONDecodeError:
+                        error_message = error_text
+                    
+                    return {
+                        "status": "failed",
+                        "error": error_message,
+                        "status_code": response.status_code
+                    }
+                    
+            except requests.exceptions.Timeout:
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt
+                    logger.warning(f"Request timed out. Retrying in {wait_time} seconds...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logger.error("✗ Request timed out after 30 seconds")
+                    return {
+                        "status": "failed",
+                        "error": "Request timed out"
+                    }
+            except requests.exceptions.ConnectionError:
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt
+                    logger.warning(f"Connection error. Retrying in {wait_time} seconds...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logger.error("✗ Connection error occurred")
+                    return {
+                        "status": "failed",
+                        "error": "Connection error"
+                    }
+            except requests.exceptions.RequestException as e:
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt
+                    logger.warning(f"Request exception: {str(e)}. Retrying in {wait_time} seconds...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logger.error(f"✗ Request exception: {str(e)}")
+                    return {
+                        "status": "failed",
+                        "error": f"Request error: {str(e)}"
+                    }
+            except Exception as e:
+                logger.error(f"✗ Unexpected error: {str(e)}")
                 return {
                     "status": "failed",
-                    "error": error_message,
-                    "status_code": response.status_code
+                    "error": f"Unexpected error: {str(e)}"
                 }
-                
-        except requests.exceptions.Timeout:
-            logger.error("✗ Request timed out after 30 seconds")
-            return {
-                "status": "failed",
-                "error": "Request timed out"
-            }
-        except requests.exceptions.ConnectionError:
-            logger.error("✗ Connection error occurred")
-            return {
-                "status": "failed",
-                "error": "Connection error"
-            }
-        except requests.exceptions.RequestException as e:
-            logger.error(f"✗ Request exception: {str(e)}")
-            return {
-                "status": "failed",
-                "error": f"Request error: {str(e)}"
-            }
-        except Exception as e:
-            logger.error(f"✗ Unexpected error: {str(e)}")
-            return {
-                "status": "failed",
-                "error": f"Unexpected error: {str(e)}"
-            }
+        
+        # This should never be reached, but just in case
+        return {"status": "failed", "error": "Unexpected error in retry logic"}
     
     def post_image(self, message: str, image_path: Path) -> Dict[str, Any]:
         """Post image with text to Facebook page."""

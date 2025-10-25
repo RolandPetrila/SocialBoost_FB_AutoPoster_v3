@@ -20,6 +20,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Enhanced image posting tests** - 7 new unit tests covering all image posting scenarios
 - **Validation system improvements** - Fixed mypy integration and result saving
 
+## [Phase 3 Step 6] - 2025-10-25
+
+### Fixed
+- **MyPy Type Errors**: Resolved remaining type checking errors in helper scripts
+  - Fixed `Scripts/context_builder.py` type annotations
+  - Added proper `Optional[Path]` type for `root_path` parameter
+  - Added explicit type annotations for `Dict[str, Any]` structures
+  - Resolved `Collection[str]` attribute access errors
+
+### Added
+- **Retry Logic Implementation**: Added robust retry mechanisms for API calls
+  - **Facebook API Retry**: Implemented retry logic in `Automatizare_Completa/auto_post.py`
+    - 3 retry attempts with exponential backoff (2^attempt seconds)
+    - Handles retryable HTTP status codes: 429, 500, 502, 503, 504
+    - Handles network errors: `ConnectionError`, `Timeout`, `RequestException`
+    - Comprehensive logging for retry attempts and failures
+  - **OpenAI API Retry**: Implemented retry logic in `Automatizare_Completa/auto_generate.py`
+    - 3 retry attempts with exponential backoff (2^attempt seconds)
+    - Handles OpenAI-specific errors: `RateLimitError`, `APIConnectionError`, `APITimeoutError`
+    - Handles generic exceptions for additional resilience
+    - Maintains existing fallback text system after all retries fail
+- **Enhanced Unit Tests**: Added comprehensive retry testing
+  - **Facebook Retry Tests**: 3 new tests in `Tests/test_auto_post.py`
+    - `test_post_text_retry_success` - API fails once then succeeds
+    - `test_post_text_retry_max_attempts` - API fails all 3 times
+    - `test_post_text_connection_error_retry` - Connection error retry
+  - **OpenAI Retry Tests**: 3 new tests in `Tests/test_auto_generate.py`
+    - `test_generate_post_text_retry_success` - API fails once then succeeds
+    - `test_generate_post_text_retry_max_attempts` - API fails all 3 times
+    - `test_generate_caption_retry_success` - Caption generation retry
+  - All retry tests verify correct call counts and sleep durations
+
+### Technical Details
+- **Retry Strategy**:
+  - Maximum 3 attempts for all API calls
+  - Exponential backoff: 1s, 2s, 4s delays
+  - Specific error handling for different failure types
+  - Graceful degradation to fallback systems
+- **Error Handling**:
+  - Distinguishes between retryable and non-retryable errors
+  - Comprehensive logging for debugging and monitoring
+  - Maintains existing error response formats
+- **Testing Coverage**:
+  - All retry scenarios covered with unit tests
+  - Mock verification for API call counts and sleep calls
+  - Integration with existing test framework
+
 ## [Phase 3 Step 5] - 2025-10-25
 
 ### Added
