@@ -38,6 +38,9 @@ class SocialBoostApp(tk.Tk):
         self.setup_tabs()
         self.setup_queue()
         
+        # Check Facebook token status at startup
+        self.check_facebook_token_startup()
+        
     def setup_window(self) -> None:
         """Configure the main window properties."""
         self.title("SocialBoost Facebook AutoPoster v3")
@@ -122,6 +125,10 @@ class SocialBoostApp(tk.Tk):
         self.health_score_label = ttk.Label(left_frame, text="Score: 0.00")
         self.health_score_label.pack(anchor='w', pady=2)
         
+        # Facebook token status
+        self.facebook_token_status_label = ttk.Label(left_frame, text="Facebook Token: Checking...", font=('Arial', 10, 'bold'))
+        self.facebook_token_status_label.pack(anchor='w', pady=(10, 2))
+        
         # Refresh status button
         refresh_status_btn = ttk.Button(left_frame, text="Refresh Status", command=self.load_project_status_gui)
         refresh_status_btn.pack(pady=10)
@@ -145,6 +152,14 @@ class SocialBoostApp(tk.Tk):
             command=self.run_backup
         )
         self.backup_btn.pack(fill='x', pady=5)
+        
+        # Facebook token refresh button
+        self.refresh_token_btn = ttk.Button(
+            right_frame,
+            text="Refresh Facebook Token",
+            command=self.run_token_exchange
+        )
+        self.refresh_token_btn.pack(fill='x', pady=5)
         
         # Scheduler control buttons
         scheduler_frame = ttk.LabelFrame(right_frame, text="Scheduler Control", padding=5)
@@ -1405,6 +1420,92 @@ class SocialBoostApp(tk.Tk):
         except Exception as e:
             messagebox.showerror("Eroare", f"Eroare la ștergerea jobului: {str(e)}")
             self.add_log(f"Eroare la ștergerea jobului: {str(e)}")
+    
+    def check_facebook_token_startup(self) -> None:
+        """Check Facebook token status at startup in a separate thread."""
+        def check_token():
+            try:
+                script_path = self.PROJECT_ROOT / "Scripts" / "exchange_user_to_page_token.py"
+                
+                if not script_path.exists():
+                    self.after(0, lambda: self.facebook_token_status_label.config(
+                        text="Facebook Token: Script not found",
+                        foreground='red'
+                    ))
+                    return
+                
+                # Run the script with --check-only flag
+                result = subprocess.run(
+                    [sys.executable, str(script_path), "--check-only"],
+                    capture_output=True,
+                    text=True,
+                    cwd=str(self.PROJECT_ROOT)
+                )
+                
+                # Update status label based on exit code
+                def update_status():
+                    if result.returncode == 0:
+                        self.facebook_token_status_label.config(
+                            text="Facebook Token: VALID ✅",
+                            foreground='green'
+                        )
+                    elif result.returncode == 1:
+                        self.facebook_token_status_label.config(
+                            text="Facebook Token: INVALID/EXPIRED ❌ - Run Refresh!",
+                            foreground='red'
+                        )
+                    elif result.returncode == 2:
+                        self.facebook_token_status_label.config(
+                            text="Facebook Token: NOT FOUND - Run Refresh!",
+                            foreground='orange'
+                        )
+                    else:
+                        self.facebook_token_status_label.config(
+                            text="Facebook Token: Error checking",
+                            foreground='red'
+                        )
+                
+                self.after(0, update_status)
+                
+            except Exception as exc:
+                def update_error():
+                    self.facebook_token_status_label.config(
+                        text=f"Facebook Token: Error - {str(exc)[:30]}...",
+                        foreground='red'
+                    )
+                self.after(0, update_error)
+        
+        # Run in separate thread
+        thread = threading.Thread(target=check_token)
+        thread.daemon = True
+        thread.start()
+    
+    def run_token_exchange(self) -> None:
+        """Open external terminal for Facebook token exchange."""
+        try:
+            script_path = self.PROJECT_ROOT / "Scripts" / "exchange_user_to_page_token.py"
+            
+            if not script_path.exists():
+                messagebox.showerror("Error", f"Token exchange script not found: {script_path}")
+                return
+            
+            # Open a new CMD window to run the script interactively
+            # This allows the user to enter the user token in the console
+            subprocess.Popen([
+                'cmd.exe', '/c', 'start', 'cmd.exe', '/k',
+                f'"{sys.executable}" "{script_path}"'
+            ])
+            
+            messagebox.showinfo(
+                "Token Refresh",
+                "O nouă fereastră s-a deschis pentru reînnoirea token-ului.\n\n"
+                "Urmează instrucțiunile din acea fereastră.\n\n"
+                "După finalizare, repornește aplicația sau apasă 'Refresh Status' "
+                "pentru a vedea noul status al token-ului."
+            )
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open token exchange window: {str(e)}")
 
 
 def main() -> None:

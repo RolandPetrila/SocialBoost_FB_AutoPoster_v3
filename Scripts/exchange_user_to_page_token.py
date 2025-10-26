@@ -6,8 +6,8 @@ Exchanges short-lived user token for long-lived page token
 
 import os
 import sys
-import json
 import requests
+import argparse
 from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv, set_key
@@ -84,10 +84,14 @@ def verify_token(token):
     
     if response.status_code == 200:
         data = response.json().get("data", {})
+        
+        # Check if token is valid
+        is_valid = data.get('is_valid', False)
+        
         print(f"✓ Token verified successfully")
         print(f"  - Type: {data.get('type', 'unknown')}")
         print(f"  - App ID: {data.get('app_id', 'unknown')}")
-        print(f"  - Valid: {data.get('is_valid', False)}")
+        print(f"  - Valid: {is_valid}")
         
         if data.get('expires_at'):
             expires_at = datetime.fromtimestamp(data['expires_at'])
@@ -95,7 +99,7 @@ def verify_token(token):
         else:
             print(f"  - Expires: Never (permanent token)")
         
-        return True
+        return is_valid
     else:
         print(f"✗ Token verification failed: {response.status_code}")
         return False
@@ -119,15 +123,53 @@ def update_env_file(token):
 
 def main():
     """Main execution flow."""
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(
+        description='Exchange Facebook user token for page token',
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument('--check-only', action='store_true',
+                        help='Only check if the current page token in .env is valid')
+    parser.add_argument('--user-token', type=str,
+                        help='User token to use (non-interactive mode)')
+    
+    args = parser.parse_args()
+    
+    # Handle --check-only mode
+    if args.check_only:
+        print("="*60)
+        print("Facebook Token Check Mode")
+        print("="*60)
+        
+        # Load current page token from .env
+        page_token = os.getenv("FACEBOOK_PAGE_TOKEN")
+        
+        if not page_token or page_token.strip() == "":
+            print("\n✗ No FACEBOOK_PAGE_TOKEN found in .env file")
+            sys.exit(2)
+        
+        print(f"\nChecking token: {page_token[:20]}...{page_token[-10:]}")
+        
+        # Verify the token
+        is_valid = verify_token(page_token)
+        
+        if is_valid:
+            print("\n✓ Token is VALID")
+            sys.exit(0)
+        else:
+            print("\n✗ Token is INVALID or EXPIRED")
+            sys.exit(1)
+    
+    # Normal token exchange flow
     print("="*60)
     print("Facebook Token Exchange Script")
     print("="*60)
     
-    # Check for user token in environment or ask for input
-    user_token = os.getenv("FACEBOOK_USER_TOKEN")
+    # Get user token
+    user_token = args.user_token if args.user_token else os.getenv("FACEBOOK_USER_TOKEN")
     
     if not user_token or user_token.strip() == "":
-        print("\nNo user token found in .env file.")
+        print("\nNo user token found in .env file or command-line argument.")
         user_token = input("Please enter your short-lived user token: ").strip()
         
         if not user_token:
@@ -148,7 +190,8 @@ def main():
     
     # Step 3: Verify the page token
     print("\n" + "="*60)
-    if verify_token(page_token):
+    is_valid = verify_token(page_token)
+    if is_valid:
         print("\n✓ Page token is valid and ready to use!")
     else:
         print("\n⚠ Warning: Token verification failed, but token might still work")

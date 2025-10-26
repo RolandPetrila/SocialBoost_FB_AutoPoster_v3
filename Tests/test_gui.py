@@ -415,6 +415,28 @@ class TestGUIIntegration(unittest.TestCase):
         self.assertIn('except Exception', code, "Control tab methods should handle exceptions")
         self.assertIn('messagebox.showerror', code, "Control tab should show error messages")
         self.assertIn('messagebox.showinfo', code, "Control tab should show success messages")
+    
+    def test_facebook_token_check_at_startup(self):
+        """Test that the GUI checks Facebook token status at startup."""
+        gui_file = project_root / "GUI" / "main_gui.py"
+        with open(gui_file, 'r', encoding='utf-8') as f:
+            code = f.read()
+        
+        # Check that token check is called at startup
+        self.assertIn('check_facebook_token_startup', code,
+                     "GUI should call check_facebook_token_startup method")
+    
+    def test_facebook_token_refresh_button_exists(self):
+        """Test that the Facebook token refresh button exists."""
+        gui_file = project_root / "GUI" / "main_gui.py"
+        with open(gui_file, 'r', encoding='utf-8') as f:
+            code = f.read()
+        
+        # Check for refresh token button
+        self.assertIn('refresh_token_btn', code,
+                     "GUI should have refresh_token_btn widget")
+        self.assertIn('run_token_exchange', code,
+                     "Refresh button should call run_token_exchange method")
 
 
 if __name__ == '__main__':
