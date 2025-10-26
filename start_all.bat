@@ -1,4 +1,5 @@
 @echo off
+cd /d "%~dp0"
 chcp 65001 > nul
 title SocialBoost Full System
 echo Starting SocialBoost Full System (GUI + Scheduler)...

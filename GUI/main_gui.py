@@ -8,7 +8,6 @@ import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext
 import subprocess
 import threading
-import os
 import sys
 import pathlib
 import json
@@ -534,7 +533,7 @@ class SocialBoostApp(tk.Tk):
             while True:
                 message = self.queue.get_nowait()
                 self.handle_queue_message(message)
-        except:
+        except Exception:
             pass
         finally:
             self.after(100, self.check_queue)
@@ -796,6 +795,10 @@ class SocialBoostApp(tk.Tk):
     def load_logs(self) -> None:
         """Load log content from the log file."""
         try:
+            # Check if logs_text widget exists
+            if not hasattr(self, 'logs_text'):
+                return
+                
             # Enable text widget for editing
             self.logs_text.config(state='normal')
             
@@ -830,11 +833,13 @@ class SocialBoostApp(tk.Tk):
             self.logs_text.see(tk.END)
             
         except Exception as e:
-            # Fallback error handling
-            self.logs_text.insert(tk.END, f"Error loading logs: {str(e)}\n")
+            # Fallback error handling - only if widget exists
+            if hasattr(self, 'logs_text'):
+                self.logs_text.insert(tk.END, f"Error loading logs: {str(e)}\n")
         finally:
-            # Disable text widget
-            self.logs_text.config(state='disabled')
+            # Disable text widget if it exists
+            if hasattr(self, 'logs_text'):
+                self.logs_text.config(state='disabled')
     
     def create_sample_log(self) -> None:
         """Create a sample log file if it doesn't exist."""
@@ -843,7 +848,7 @@ class SocialBoostApp(tk.Tk):
             self.log_file_path.parent.mkdir(parents=True, exist_ok=True)
             
             # Create sample log content
-            sample_content = f"""2025-10-25 20:00:00 - SocialBoost - INFO - Application started
+            sample_content = """2025-10-25 20:00:00 - SocialBoost - INFO - Application started
 2025-10-25 20:00:01 - SocialBoost - INFO - GUI initialized successfully
 2025-10-25 20:00:02 - SocialBoost - INFO - Logs tab loaded
 2025-10-25 20:00:03 - SocialBoost - INFO - Auto-refresh enabled
@@ -863,6 +868,8 @@ class SocialBoostApp(tk.Tk):
     
     def add_log(self, message: str) -> None:
         """Add a log message to the logs tab."""
+        if not hasattr(self, 'logs_text'):
+            return
         self.logs_text.config(state='normal')
         self.logs_text.insert(tk.END, f"{message}\n")
         self.logs_text.see(tk.END)
@@ -1468,9 +1475,10 @@ class SocialBoostApp(tk.Tk):
                 self.after(0, update_status)
                 
             except Exception as exc:
+                error_msg = str(exc)[:30]
                 def update_error():
                     self.facebook_token_status_label.config(
-                        text=f"Facebook Token: Error - {str(exc)[:30]}...",
+                        text=f"Facebook Token: Error - {error_msg}...",
                         foreground='red'
                     )
                 self.after(0, update_error)
