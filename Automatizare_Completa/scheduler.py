@@ -12,6 +12,7 @@ import schedule
 import subprocess
 import logging
 import datetime
+import io
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from dotenv import load_dotenv
@@ -19,16 +20,37 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('Logs/scheduler.log'),
-        logging.StreamHandler()
-    ]
-)
+# Force UTF-8 encoding for stdout/stderr to prevent UnicodeEncodeError
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')  # type: ignore[union-attr]
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')  # type: ignore[union-attr]
+    except Exception:
+        # Fallback for environments where reconfigure might fail
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
+# Setup logging with UTF-8 encoding
+PROJECT_ROOT = Path(__file__).parent.parent
+log_file = PROJECT_ROOT / "Logs" / "scheduler.log"
+
+# Ensure Logs directory exists
+log_file.parent.mkdir(parents=True, exist_ok=True)
+
+# Configure logger with explicit UTF-8 encoding
+log_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+# File Handler with UTF-8 encoding
+file_handler = logging.FileHandler(log_file, encoding='utf-8', errors='replace')
+file_handler.setFormatter(log_formatter)
+logger.addHandler(file_handler)
+
+# Console Handler with UTF-8 support
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(log_formatter)
+logger.addHandler(console_handler)
 
 class TaskScheduler:
     """Automated task scheduling system."""
@@ -119,23 +141,32 @@ class TaskScheduler:
                 logger.error(f"Script not found: {script_path}")
                 return
             
+            # Build command with arguments
+            cmd = [sys.executable, str(script_path)]
+            
+            # Add default arguments for specific tasks
+            if task_name == "backup_manager.py":
+                cmd.append("create")  # Add 'create' action for backup_manager
+            
             # Run the script
-            logger.info(f"Executing: {script_path}")
+            logger.info(f"Executing: {' '.join(cmd)}")
             result = subprocess.run(
-                [sys.executable, str(script_path)],
+                cmd,
                 capture_output=True,
                 text=True,
                 cwd=self.project_root,
-                timeout=300  # 5 minute timeout
+                timeout=300,  # 5 minute timeout
+                encoding='utf-8',
+                errors='replace'
             )
             
             # Log results
             if result.returncode == 0:
-                logger.info(f"✓ Task {task_name} completed successfully")
+                logger.info(f"SUCCESS - Task {task_name} completed successfully")
                 if result.stdout:
                     logger.info(f"Output: {result.stdout[:200]}...")
             else:
-                logger.error(f"✗ Task {task_name} failed with return code {result.returncode}")
+                logger.error(f"FAIL - Task {task_name} failed with return code {result.returncode}")
                 if result.stderr:
                     logger.error(f"Error: {result.stderr[:200]}...")
             

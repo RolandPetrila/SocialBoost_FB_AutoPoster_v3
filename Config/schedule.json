@@ -21,8 +21,9 @@
       "run_at_datetime": "2025-10-26T12:00:00",
       "task": "backup_manager.py",
       "enabled": true,
-      "executed": false,
-      "description": "One-time backup"
+      "executed": true,
+      "description": "One-time backup",
+      "last_run": "2025-10-26T15:17:56.383456"
     },
     {
       "type": "weekly",
