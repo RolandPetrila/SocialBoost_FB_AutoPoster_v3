@@ -31,6 +31,12 @@ class SocialBoostApp(tk.Tk):
         # Set up project root path
         self.PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[1]
         
+        # Initialize critical attributes BEFORE setting up GUI components
+        # This prevents AttributeError if any method tries to access these early
+        self.assets_dict: Dict[str, str] = {}
+        self.preview_image: Optional[ImageTk.PhotoImage] = None
+        self.scheduler_process: Optional[subprocess.Popen] = None
+        
         # Initialize GUI components
         self.setup_window()
         self.setup_notebook()
@@ -86,9 +92,7 @@ class SocialBoostApp(tk.Tk):
         self.setup_generate_tab()
         self.setup_logs_tab()
         
-        # Initialize assets tracking
-        self.assets_dict: Dict[str, str] = {}
-        self.preview_image: Optional[ImageTk.PhotoImage] = None
+        # Note: assets_dict, preview_image, and scheduler_process are now initialized in __init__
         
     def setup_control_tab(self) -> None:
         """Setup the Control/Status tab."""
