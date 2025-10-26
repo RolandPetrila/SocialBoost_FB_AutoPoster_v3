@@ -6,8 +6,8 @@
   "ai_model_primary": "Claude 3.5 Sonnet",
   "sync_mode": "Manual-AI-GitHub-Cursor",
   "python_version": "3.13.7",
-  "last_commit": "601c812 - feat(gui): Integrate Facebook token refresh button and startup check",
-  "last_run": "2025-10-26T10:53:15",
+  "last_commit": "bf6adfe - test(e2e): Add end-to-end workflow simulation test",
+  "last_run": "2025-10-26T11:50:00",
   "last_exit_code": null,
   "last_log_dir": ""
 }
