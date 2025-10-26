@@ -274,7 +274,28 @@ The application uses `gpt-4o-mini` by default (configured as `OPENAI_MODEL` in `
 
 ## Running the Application
 
-### Starting the GUI
+### Quick Start (Recommended for Windows Users)
+
+The easiest way to start the application is using the provided batch scripts:
+
+#### Option 1: Start GUI Only
+Double-click `start_gui.bat` (or run it from command prompt):
+- Activates the virtual environment
+- Starts the GUI application
+- Shows a single window with all tabs
+
+#### Option 2: Start Full System (GUI + Scheduler)
+Double-click `start_all.bat` (or run it from command prompt):
+- Activates the virtual environment
+- Launches the scheduler in a background window
+- Opens the GUI in the current window
+- Both run simultaneously for complete automation
+
+**Note**: The scheduler will continue running even after you close the GUI window. Use the GUI's **"Stop Scheduler"** button or Task Manager to stop it.
+
+### Manual Start (Advanced Users)
+
+#### Starting the GUI
 
 **Windows:**
 ```bash
@@ -293,7 +314,7 @@ The GUI window will open with 5 tabs:
 4. **Generare Text** - AI content generation
 5. **Logs** - System logs
 
-### Starting the Scheduler (Background Automation)
+#### Starting the Scheduler (Background Automation)
 
 The scheduler can be started in two ways:
 
