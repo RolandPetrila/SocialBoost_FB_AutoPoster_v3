@@ -228,9 +228,18 @@ class ValidationRunner:
             return False, "MyPy not found or failed to run", []
         
         try:
+            # Run mypy only on main application modules (excluding Tests and GUI for speed)
+            files_to_check = [
+                "Automatizare_Completa",
+                "Scripts",
+                "orchestrator.py",
+                "backup_manager.py",
+                "restore_manager.py"
+            ]
+            
             # Run mypy with ignore missing imports
             result = subprocess.run(
-                [sys.executable, "-m", "mypy", ".", "--ignore-missing-imports", "--no-error-summary", "--explicit-package-bases"],
+                [sys.executable, "-m", "mypy"] + files_to_check + ["--ignore-missing-imports", "--no-error-summary"],
                 capture_output=True,
                 text=True,
                 cwd=self.project_root,

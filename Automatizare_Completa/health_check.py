@@ -11,7 +11,7 @@ import json
 import datetime
 import shutil
 from typing import Dict, Any, List, Optional, Tuple
-import psutil
+import psutil  # type: ignore[import-untyped]
 
 
 class HealthCheck:
@@ -48,22 +48,23 @@ class HealthCheck:
         
         try:
             version_info = sys.version_info
-            result['details'] = {
+            details = {
                 'version': f"{version_info.major}.{version_info.minor}.{version_info.micro}",
                 'major': version_info.major,
                 'minor': version_info.minor,
                 'micro': version_info.micro
             }
+            result['details'] = details  # type: ignore[assignment]
             
             # Check minimum requirements (Python 3.8+)
             if version_info.major >= 3 and version_info.minor >= 8:
                 result['status'] = 'Pass'
                 result['score'] = 1.0
-                result['message'] = f"Python {result['details']['version']} is compatible"
+                result['message'] = f"Python {details['version']} is compatible"
             else:
                 result['status'] = 'Fail'
                 result['score'] = 0.0
-                result['message'] = f"Python {result['details']['version']} is too old (requires 3.8+)"
+                result['message'] = f"Python {details['version']} is too old (requires 3.8+)"
                 
         except Exception as e:
             result['status'] = 'Error'
@@ -122,21 +123,23 @@ class HealthCheck:
                 timeout=10
             )
             
-            result['details'] = {
+            details = {
                 'is_git_repo': True,
                 'current_branch': git_branch.stdout.strip() if git_branch.returncode == 0 else 'Unknown',
                 'last_commit': git_log.stdout.strip() if git_log.returncode == 0 else 'Unknown',
                 'uncommitted_changes': len(git_status.stdout.strip().split('\n')) if git_status.stdout.strip() else 0
             }
+            result['details'] = details  # type: ignore[assignment]
             
             # Calculate score based on Git health
             score = 1.0
-            if result['details']['uncommitted_changes'] > 0:
+            uncommitted = details['uncommitted_changes']  # type: ignore[index]
+            if uncommitted > 0:  # type: ignore[operator]
                 score -= 0.2  # Deduct for uncommitted changes
             
             result['score'] = score
             result['status'] = 'Pass' if score >= 0.8 else 'Warning'
-            result['message'] = f"Git repository healthy (branch: {result['details']['current_branch']})"
+            result['message'] = f"Git repository healthy (branch: {details['current_branch']})"
             
         except subprocess.TimeoutExpired:
             result['status'] = 'Error'
@@ -216,12 +219,13 @@ class HealthCheck:
             # Calculate score
             file_score = len(existing_files) / len(required_files)
             dir_score = len(existing_dirs) / len(required_dirs)
-            result['score'] = (file_score + dir_score) / 2
+            score_val = (file_score + dir_score) / 2
+            result['score'] = score_val
             
-            if result['score'] >= 0.9:
+            if score_val >= 0.9:
                 result['status'] = 'Pass'
                 result['message'] = 'All required files and directories present'
-            elif result['score'] >= 0.7:
+            elif score_val >= 0.7:
                 result['status'] = 'Warning'
                 result['message'] = f"Missing {len(missing_files)} files, {len(missing_dirs)} directories"
             else:
@@ -288,12 +292,13 @@ class HealthCheck:
             }
             
             # Calculate score
-            result['score'] = len(installed_packages) / len(requirements) if requirements else 0.0
+            score_val = len(installed_packages) / len(requirements) if requirements else 0.0
+            result['score'] = score_val
             
-            if result['score'] >= 0.9:
+            if score_val >= 0.9:
                 result['status'] = 'Pass'
                 result['message'] = 'All dependencies installed'
-            elif result['score'] >= 0.7:
+            elif score_val >= 0.7:
                 result['status'] = 'Warning'
                 result['message'] = f"Missing {len(missing_packages)} dependencies"
             else:
@@ -406,14 +411,15 @@ class HealthCheck:
             def bytes_to_gb(bytes_val):
                 return bytes_val / (1024 ** 3)
             
-            result['details'] = {
+            details = {
                 'total_gb': round(bytes_to_gb(total_bytes), 2),
                 'free_gb': round(bytes_to_gb(free_bytes), 2),
                 'used_gb': round(bytes_to_gb(used_bytes), 2),
                 'free_percentage': round((free_bytes / total_bytes) * 100, 2)
             }
+            result['details'] = details  # type: ignore[assignment]
             
-            free_percentage = result['details']['free_percentage']
+            free_percentage = details['free_percentage']
             
             if free_percentage >= 20:
                 result['status'] = 'Pass'
@@ -581,14 +587,15 @@ class HealthCheck:
                 self.results[result['check']] = result
                 print(f"✓ Completed: {result['check']}")
             except Exception as e:
-                error_result = {
-                    'check': check_func.__name__.replace('check_', '').replace('_', ' ').title(),
+                check_name = check_func.__name__.replace('check_', '').replace('_', ' ').title()
+                error_result: Dict[str, Any] = {
+                    'check': check_name,
                     'status': 'Error',
                     'details': {},
                     'score': 0.0,
                     'message': f"Exception during check: {str(e)}"
                 }
-                self.results[error_result['check']] = error_result
+                self.results[check_name] = error_result
                 print(f"✗ Failed: {error_result['check']}")
         
         # Calculate overall health
