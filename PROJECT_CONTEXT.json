@@ -6,7 +6,7 @@
   "ai_model_primary": "Claude 3.5 Sonnet",
   "sync_mode": "Manual-AI-GitHub-Cursor",
   "python_version": "3.13.7",
-  "last_commit": "PENDING",
+  "last_commit": "4eb83b6 - feat: Add final startup scripts (start_all.bat, start_gui.bat)",
   "last_run": "2025-10-26T14:25:00",
   "last_exit_code": null,
   "last_log_dir": "Logs/RunAll/20251026_120513",
