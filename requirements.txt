@@ -11,3 +11,8 @@ pytest>=7.4.0
 flake8>=6.1.0
 mypy>=1.5.0
 bandit>=1.7.5
+
+# Web GUI
+streamlit>=1.36.0
+streamlit-option-menu>=0.3.6
+watchdog>=3.0.0
